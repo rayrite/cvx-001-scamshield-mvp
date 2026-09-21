@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coolyvision Inc — Welcome to Scam Shield</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9C%A8%3C/text%3E%3C/svg%3E">
+<!-- friendly rounded pair: Baloo 2 (display) + Nunito (body). Falls back to
+     system fonts if the CDN is unavailable — the page still renders fine. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,700;1,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void: #060a13; --ink: #eef2fb; --muted: #aab6cf;
+    --teal: #17e8d8;
+    --font-display: "Baloo 2", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Nunito", "Segoe UI", system-ui, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--void); color: var(--ink);
+    font-family: var(--font-body);
+    height: 100vh; overflow: hidden;
+  }
+  #bg { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+  /* text block centered as a whole about one-third from the top */
+  .stage {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    justify-content: flex-start; align-items: center;
+    padding: clamp(20px, 4vw, 44px);
+    opacity: 0; animation: settle 1s ease-out 0.3s forwards;
+  }
+  @keyframes settle { to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .stage { animation: none; opacity: 1; } }
+  .hero {
+    text-align: center; max-width: 720px; width: 100%;
+    margin-top: clamp(56px, 21vh, 240px);
+  }
+  .hero .company {
+    font-family: var(--font-display);
+    font-size: clamp(2.3rem, 5.5vw, 3.9rem); font-weight: 800; line-height: 1.08;
+    letter-spacing: .01em;
+    text-shadow: 0 2px 28px rgba(3, 6, 12, 0.85);
+  }
+  .hero .welcome {
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 3vw, 2rem); font-weight: 700;
+    color: var(--teal); margin-top: 6px;
+    text-shadow: 0 0 24px rgba(23, 232, 216, 0.35);
+  }
+  .hero .builder {
+    margin-top: 8px; color: var(--muted);
+    font-size: clamp(1rem, 1.8vw, 1.12rem); font-weight: 600;
+    text-shadow: 0 1px 18px rgba(3, 6, 12, 0.9);
+  }
+  .hero .mission {
+    margin-top: 2.1em; max-width: 58ch; margin-left: auto; margin-right: auto;
+    color: #dfe6f5; font-weight: 700;
+    font-size: clamp(1.02rem, 2vw, 1.22rem); line-height: 1.55;
+    text-shadow: 0 1px 18px rgba(3, 6, 12, 0.9);
+  }
+  /* the pillar phrase: never broken across lines, bright pink italic */
+  .hero .mission .pillar {
+    white-space: nowrap; font-style: italic;
+    color: #ff5ec7;
+    text-shadow: 0 0 22px rgba(255, 94, 199, 0.3);
+  }
+  .btn {
+    display: inline-block; margin-top: 2.1em;
+    font-family: var(--font-display); font-weight: 700;
+    font-size: clamp(1.14rem, 2vw, 1.32rem); letter-spacing: .02em;
+    padding: 14px 34px; border-radius: 999px; cursor: pointer;
+    text-decoration: none; color: #0a0f1c; background: var(--ink);
+    border: 1px solid var(--ink);
+    box-shadow: 0 6px 26px rgba(3, 6, 12, 0.55);
+    transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+  }
+  .btn:hover {
+    background: #fff; transform: translateY(-2px);
+    box-shadow: 0 0 30px rgba(23, 232, 216, 0.35), 0 10px 30px rgba(3, 6, 12, 0.55);
+  }
+  .btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+
+  /* mobile & touch */
+  html, body { overscroll-behavior: none; }
+  body { height: 100dvh; -webkit-tap-highlight-color: transparent; }
+  #bg { touch-action: none; }
+  .stage { -webkit-user-select: none; user-select: none; }
+  @media (max-width: 640px) {
+    .hero { margin-top: clamp(64px, 18vh, 200px); }
+    /* slightly smaller mission so the unbreakable pillar phrase always fits */
+    .hero .mission { font-size: clamp(0.96rem, 2.6vw, 1.22rem); }
+    .btn { padding: 15px 36px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="stage">
+  <main class="hero">
+    <h1 class="company">Coolyvision Inc</h1>
+    <p class="welcome">Welcome to Scam Shield</p>
+    <p class="builder">Ray D. Wright II, Builder, Detroiter</p>
+    <p class="mission">Providing <span class="pillar">Safe, Just &amp; Thriving Neighborhoods</span> by protecting our money!!</p>
+    <a class="btn" href="/home">Feel the Power!</a>
+  </main>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const canvas = document.getElementById("bg");
+  const ctx = canvas.getContext("2d");
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const TAU = Math.PI * 2;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+
+  let W = 0, H = 0;
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  const COLS = [
+    [232, 240, 255],   // white
+    [23, 232, 216],    // teal
+    [255, 94, 199]     // pink
+  ];
+
+  const N = 90;
+  const pts = [];
+  for (let i = 0; i < N; i++) {
+    pts.push({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: rnd(-8, 8), vy: rnd(-8, 8),          // px per second
+      r: rnd(1, 2.6),
+      col: COLS[Math.random() < 0.62 ? 0 : (Math.random() < 0.6 ? 1 : 2)],
+      ph: rnd(0, TAU)
+    });
+  }
+
+  let mx = -9999, my = -9999, px = -9999, py = -9999, hasPointer = false;
+  window.addEventListener("pointermove", e => { mx = e.clientX; my = e.clientY; hasPointer = true; });
+  window.addEventListener("pointerleave", () => { hasPointer = false; });
+
+  const LINK = 130;      // particle-particle link distance (px)
+  const PLINK = 190;     // pointer link distance
+
+  function step(dt, t) {
+    px += ((hasPointer ? mx : -9999) - px) * 0.12;
+    py += ((hasPointer ? my : -9999) - py) * 0.12;
+
+    for (const p of pts) {
+      // gentle wander
+      p.vx += Math.sin(t * 0.7 + p.ph) * 2.2 * dt;
+      p.vy += Math.cos(t * 0.6 + p.ph * 1.3) * 2.2 * dt;
+
+      // pointer gathers nearby points slightly
+      if (hasPointer) {
+        const dx = px - p.x, dy = py - p.y;
+        const d = Math.hypot(dx, dy);
+        if (d < PLINK * 1.4 && d > 1) {
+          p.vx += (dx / d) * 7 * dt;
+          p.vy += (dy / d) * 7 * dt;
+        }
+      }
+
+      // clamp speed
+      const sp = Math.hypot(p.vx, p.vy);
+      const max = 16;
+      if (sp > max) { p.vx = p.vx / sp * max; p.vy = p.vy / sp * max; }
+
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      // wrap
+      if (p.x < -20) p.x = W + 20; if (p.x > W + 20) p.x = -20;
+      if (p.y < -20) p.y = H + 20; if (p.y > H + 20) p.y = -20;
+    }
+  }
+
+  function frame(now, dt) {
+    const t = now / 1000;
+    // entrance: the network grows in over 1.6s
+    const grow = reduced ? 1 : Math.min(t / 1.6, 1);
+
+    step(dt, t);
+
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#070b14");
+    g.addColorStop(0.6, "#0a0f1d");
+    g.addColorStop(1, "#0d1424");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // faint nebula backdrop so it stays in the family
+    ctx.globalCompositeOperation = "lighter";
+    let gr = ctx.createRadialGradient(W * 0.72, H * 0.3, 0, W * 0.72, H * 0.3, W * 0.42);
+    gr.addColorStop(0, "rgba(106,31,94,0.22)");
+    gr.addColorStop(1, "rgba(106,31,94,0)");
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+    gr = ctx.createRadialGradient(W * 0.15, H * 0.85, 0, W * 0.15, H * 0.85, W * 0.38);
+    gr.addColorStop(0, "rgba(23,150,150,0.10)");
+    gr.addColorStop(1, "rgba(23,150,150,0)");
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+
+    // links
+    const maxD = LINK * grow;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < N; i++) {
+      const a = pts[i];
+      for (let j = i + 1; j < N; j++) {
+        const b = pts[j];
+        const dx = a.x - b.x; if (dx > maxD || dx < -maxD) continue;
+        const dy = a.y - b.y; if (dy > maxD || dy < -maxD) continue;
+        const d = Math.hypot(dx, dy);
+        if (d < maxD) {
+          const al = (1 - d / maxD) * 0.28;
+          ctx.strokeStyle = `rgba(23,232,216,${al})`;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // pointer node + its links
+    if (px > -1000) {
+      for (const p of pts) {
+        const d = Math.hypot(px - p.x, py - p.y);
+        if (d < PLINK) {
+          const al = (1 - d / PLINK) * 0.55;
+          ctx.strokeStyle = `rgba(255,94,199,${al})`;
+          ctx.beginPath();
+          ctx.moveTo(px, py); ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+        }
+      }
+      const pul = 0.7 + 0.3 * Math.sin(t * 3);
+      ctx.fillStyle = `rgba(255,94,199,${0.9 * pul})`;
+      ctx.beginPath(); ctx.arc(px, py, 3, 0, TAU); ctx.fill();
+      ctx.fillStyle = `rgba(255,94,199,${0.15 * pul})`;
+      ctx.beginPath(); ctx.arc(px, py, 14, 0, TAU); ctx.fill();
+    }
+
+    // motes
+    for (const p of pts) {
+      const tw = 0.6 + 0.4 * Math.sin(t * 1.4 + p.ph);
+      const [r, g2, b2] = [p.col[0], p.col[1], p.col[2]];
+      ctx.fillStyle = `rgba(${r},${g2},${b2},${0.85 * tw})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  if (reduced) {
+    frame(2000, 1 / 60);
+  } else {
+    let last = performance.now();
+    requestAnimationFrame(function loop(now) {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      frame(now, dt);
+      requestAnimationFrame(loop);
+    });
+  }
+})();
+</script>
+</body>
+</html>

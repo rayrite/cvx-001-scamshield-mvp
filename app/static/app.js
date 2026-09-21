@@ -66,7 +66,7 @@ async function readImages(fileList, max) {
 
 // --- site header: one markup source, active link, flag-aware, demo chip -------
 const NAV = [
-  ["/",        "Home",    null],
+  ["/home",    "Home",    null],
   ["/check",   "Check",   "check"],
   ["/chat",    "Chat",    "chat"],
   ["/quick",   "Quick",   "quick"],
@@ -186,12 +186,12 @@ async function siteHeader() {
   const links = NAV.filter(([, , flag]) => !flag || eff[flag] !== false)
     .map(([href, label]) => {
       const active = location.pathname === href ||
-        (href !== "/" && location.pathname.startsWith(href)) ||
-        (href === "/" && location.pathname === "/index.html") ? " class=\"active\"" : "";
+        (href !== "/home" && location.pathname.startsWith(href))
+          ? " class=\"active\"" : "";
       return `<a href="${href}"${active}>${label}</a>`;
     }).join("");
   host.innerHTML = `<header class="site"><div class="wrap">
-    <a class="logo" href="/">🛡️ ScamShield</a>
+    <a class="logo" href="/home">🛡️ ScamShield</a>
     <nav>${links}</nav>
     <span class="spacer"></span>
     <span class="diagwrap">
@@ -246,7 +246,7 @@ function siteFooter() {
   if (!host) return;
   host.innerHTML = `<footer class="site"><div class="wrap">
     <span>ScamShield demo · research assistance, not legal or financial advice. Verdicts are evidence snapshots, not certificates of safety.</span>
-    <span><a href="/">Home</a> · <a href="/models">Models</a> · <a href="/theme">Theme</a></span>
+    <span><a href="/home">Home</a> · <a href="/models">Models</a> · <a href="/theme">Theme</a></span>
   </div></footer>`;
 }
 document.addEventListener("DOMContentLoaded", siteFooter);

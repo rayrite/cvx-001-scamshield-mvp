@@ -28,7 +28,7 @@ Staged Check v2 agent (jobs):
 - POST /api/jobs/{id}/gate      {decision: go|stop|document|custom, text?}
 - GET  /api/jobs/{id}/report    cumulative markdown report
 
-Pretty pages: / (landing) · /check · /chat · /quick · /learn · /apps · /theme · /models · /video.
+Pretty pages: / (company splash) · /home (landing) · /check · /chat · /quick · /learn · /apps · /theme · /models · /video.
 Mounts: /learn/wiki → content/wikis, /apps/spa → content/spas, then the static
 mount at / LAST so /api and the pretty routes win. If AGENT_TOKEN is set,
 mutating agent endpoints require the X-Auth-Token header.
@@ -535,11 +535,11 @@ async def report(jid: str, x_auth_token: str | None = Header(default=None)):
 _PAGES = {"check": "check.html", "chat": "chat.html", "quick": "quick.html",
           "learn": "learn.html", "apps": "apps.html", "theme": "theme.html",
           "models": "models.html", "video": "video.html", "map": "map.html",
-          "price": "price.html"}
+          "price": "price.html", "home": "index.html"}
 _PAGE_FLAGS = {"check": "check", "chat": "chat", "quick": "quick",
                "learn": "learning", "apps": "apps", "theme": None,
                "models": None, "video": "video", "map": None,
-               "price": None}
+               "price": None, "home": None}
 
 
 def _page(name: str):
@@ -552,6 +552,13 @@ def _page(name: str):
 
 for _name in _PAGES:
     app.get(f"/{_name}", name=f"page-{_name}")(lambda _n=_name: _page(_n))
+
+
+# the company splash owns "/" (registered before the static mount, so it
+# wins over the default index.html); the former landing lives at /home.
+@app.get("/", name="page-splash")
+async def splash_page():
+    return FileResponse(STATIC / "splash.html", media_type="text/html")
 
 
 # ------------------------------------------------- mounts (order matters!)

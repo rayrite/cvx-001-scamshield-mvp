@@ -158,7 +158,8 @@ def cmd_verify(base: str) -> int:
     # -- pages ----------------------------------------------------------------
     section("pages")
     PAGES = [
-        ("/", "ScamShield", "hero marker"),
+        ("/", "Coolyvision", "company splash"),
+        ("/home", "ScamShield", "hero marker"),
         ("/check", "Start check", "staged check form"),
         ("/chat", "Skill chat", "chat surface"),
         ("/quick", "Quick research", "quick surface"),
