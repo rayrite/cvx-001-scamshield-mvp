@@ -64,15 +64,17 @@ async function readImages(fileList, max) {
   return out;
 }
 
-// --- site header: one markup source, active link, flag-aware, demo chip -------
+// --- site header: one markup source, active link, flag-aware -------------------
+/* Walkthrough 2026-09-21: Home removed (the logo returns to the landing page),
+   Learn moved up next to the logo, Apps + Video hidden (routes stay live —
+   restore the rows below to bring the buttons back). */
 const NAV = [
-  ["/home",    "Home",    null],
+  ["/learn",   "Learn",   "learning"],
   ["/check",   "Check",   "check"],
   ["/chat",    "Chat",    "chat"],
   ["/quick",   "Quick",   "quick"],
-  ["/learn",   "Learn",   "learning"],
-  ["/apps",    "Apps",    "apps"],
-  ["/video",   "Video",   "video"],
+  // ["/apps",    "Apps",    "apps"],
+  // ["/video",   "Video",   "video"],
   ["/map",     "Map",     null],
   ["/price",   "Price",   null],
   ["/models",  "Models",  null],
@@ -104,7 +106,7 @@ function diagRow(status, title, why, ms) {
 }
 
 /* One fetch → all three rows resolve together (the server runs the checks).
-   Amber "···" while in flight, then GO/OFF. Click = re-run for fresh results. */
+   Amber "···" while in flight, then LIVE/OFF. Click = re-run for fresh results. */
 async function runDiag(openPanel = true) {
   const btn = $("diagBtn"), panel = $("diagPanel"),
         rows = $("diagRows"), verdict = $("diagVerdict");
@@ -125,13 +127,13 @@ async function runDiag(openPanel = true) {
     }).join("");
     const failed = d.checks.find(c => c.status === "fail");
     verdict.className = "verdict " + (d.ok ? "go" : "off");
-    verdict.innerHTML = d.ok ? "GO · all 3 checks passed"
+    verdict.innerHTML = d.ok ? "LIVE · all 3 checks passed"
       : `OFF · ${esc(DIAG_NAMES[failed?.id] || "check")} failed` +
         `<small>${esc(d.demo_mode && failed?.id === "key"
           ? "app still serves pages — replies are canned demo responses"
           : "fix the failing check before relying on live results")}</small>`;
     verdict.style.display = "";
-    diagPill(d.ok ? "go" : "off", d.ok ? "GO" : "OFF");
+    diagPill(d.ok ? "go" : "off", d.ok ? "LIVE" : "OFF");
   } catch {
     rows.innerHTML = "";
     verdict.className = "verdict off";
@@ -207,7 +209,6 @@ async function siteHeader() {
         <div class="ctx" id="diagCtx"></div>
       </div>
     </span>
-    <span class="mode-chip" id="modeChip" style="display:none"></span>
   </div></header>`;
   const diagBtn = $("diagBtn");
   if (diagBtn) {
@@ -218,21 +219,14 @@ async function siteHeader() {
     document.addEventListener("click", e => {
       if (!e.target.closest(".diagwrap")) $("diagPanel").classList.remove("open");
     });
-    // auto-run once per page load (approved default). The panel itself
-    // auto-opens only where it fits (wide screens); on phones the pill
-    // still resolves to GO/OFF and a tap opens the bottom sheet.
-    runDiag(matchMedia("(min-width:701px)").matches);
+    // auto-run once per page load so the pill resolves in the background —
+    // the panel stays closed until the user clicks the pill to view it.
+    runDiag(false);
   }
   pollConc();                       // live concurrency number…
   setInterval(pollConc, 3000);      // …refreshed every 3 s
   try {
     const h = await api("/api/health");
-    const chip = $("modeChip");
-    if (chip) {
-      chip.textContent = h.demo_mode ? "demo mode" : "live · z.ai";
-      chip.className = "mode-chip" + (h.demo_mode ? " demo" : "");
-      chip.style.display = "";
-    }
     applyHealthCtx(h);
     document.dispatchEvent(new CustomEvent("health", {detail: h}));
   } catch { /* ignore */ }

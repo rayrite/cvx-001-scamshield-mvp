@@ -27,13 +27,35 @@
   border:1px solid var(--pp-border);border-radius:var(--pp-radius);
 }
 .price-embed *{box-sizing:border-box}
-.pp-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.pp-tab{appearance:none;font:inherit;font-size:.8rem;color:var(--pp-muted);
-  background:transparent;border:1px solid var(--pp-border);border-radius:999px;
-  padding:6px 14px;cursor:pointer;min-height:34px}
-.pp-tab:hover{border-color:var(--pp-accent);color:var(--pp-text)}
-.pp-tab[aria-selected="true"]{border-color:var(--pp-accent);color:var(--pp-accent);
-  background:color-mix(in srgb,var(--pp-accent) 10%,transparent);font-weight:700}
+/* scenario deck (walkthrough 2026-09-21: the two scenarios lead the card as
+   highlighted, explained selector cards — they were easy-to-miss tab pills) */
+.pp-deck{margin:2px 0 16px}
+.pp-note{margin:0 0 10px;color:var(--pp-muted);font-size:.88rem;line-height:1.6}
+.pp-note b{color:var(--pp-text)}
+.pp-deck-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:660px){.pp-deck-grid{grid-template-columns:1fr}}
+.pp-scard{appearance:none;font:inherit;text-align:left;cursor:pointer;position:relative;
+  display:flex;flex-direction:column;gap:5px;padding:13px 15px;min-width:0;
+  background:var(--pp-surface);color:var(--pp-text);border:2px solid var(--pp-border);
+  border-radius:12px;transition:border-color .12s ease,background .12s ease,transform .12s ease}
+.pp-scard:hover{transform:translateY(-2px);border-color:var(--pp-accent)}
+.pp-scard:focus-visible{outline:2px solid var(--pp-accent);outline-offset:2px}
+.pp-scard[aria-selected="true"]{border-color:var(--pp-accent);
+  background:color-mix(in srgb,var(--pp-accent) 8%,var(--pp-surface));
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--pp-accent) 20%,transparent)}
+.pp-scard-tag{align-self:flex-start;border:1px solid;border-radius:999px;
+  padding:2px 9px;font-size:.64rem;font-weight:800;letter-spacing:.07em}
+.pp-scard-tag.real{color:var(--pp-good);border-color:var(--pp-good);
+  background:color-mix(in srgb,var(--pp-good) 9%,transparent)}
+.pp-scard-tag.demo{color:var(--pp-warn);border-color:var(--pp-warn);
+  background:color-mix(in srgb,var(--pp-warn) 9%,transparent)}
+.pp-scard .now{position:absolute;top:12px;right:14px;display:none;
+  font-size:.64rem;font-weight:800;letter-spacing:.08em;color:var(--pp-accent)}
+.pp-scard[aria-selected="true"] .now{display:inline}
+.pp-scard-name{font-weight:800;font-size:1.02rem;line-height:1.3;padding-right:70px}
+.pp-scard-sub{color:var(--pp-muted);font-size:.78rem;line-height:1.5}
+.pp-scard-why{color:var(--pp-muted);font-size:.76rem;line-height:1.55}
+.pp-scard-why b{color:var(--pp-text)}
 .pp-head{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;
   justify-content:space-between;margin-bottom:10px}
 .pp-title{margin:0;font-size:1.02rem;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
@@ -155,7 +177,7 @@
 .pp-caption{margin:10px 0 0;color:var(--pp-muted);font-size:.78rem;line-height:1.5}
 .pp-caption .src{display:block;margin-top:4px}
 @media (prefers-reduced-motion: reduce){
-  .pp-b,.pp-zone,.pp-card{transition:none}
+  .pp-b,.pp-zone,.pp-card,.pp-scard{transition:none}
 }
 </style>
 </head>
@@ -167,9 +189,7 @@
     <h1>💲 Price Spectrum</h1>
     <p>Is that price real? Every live ask plotted against what <b>2,132 actual
        sales</b> did over 45 days — with the slop filtered out <b>before you
-       click</b>. One page, two scenarios: a known scam magnet (RTX 3090 on
-       eBay, real capture) and the search-relevance pain point every shopper
-       knows (a very specific dress on an Amazon-style search, simulated).</p>
+       click</b>.</p>
   </div>
 
   <div class="price-embed" id="price" role="region"
@@ -197,7 +217,13 @@ const DRESS_IMGS = Array.from({length: 13}, (_, i) =>
 
 const SCENARIOS = [
   {
-    id: "gpu", data: GPU, tab: "🎮 RTX 3090 · real capture",
+    id: "gpu", data: GPU,
+    deckTag: "REAL CAPTURE", deckTagCls: "real",
+    deckName: "🎮 RTX 3090 · eBay",
+    deckSub: "509 live asks vs 2,132 real sales · 45-day window · captured 2026-09-11",
+    why: "The fair-price band comes from what <b>actually sold</b>, not asking "
+       + "prices — and 1,242 off-target listings were filtered out before "
+       + "you clicked.",
     title: "NVIDIA GeForce RTX 3090 · 24GB GDDR6X",
     sub: "eBay.com · captured 2026-09-11 · 509 live asks + 2,132 included sold "
        + "· 1,242 listings filtered out before you clicked",
@@ -227,7 +253,13 @@ const SCENARIOS = [
       + "26-row live sample. Research demo; not affiliated with eBay or NVIDIA.",
   },
   {
-    id: "dress", data: DRESS, tab: "👗 Dress M · simulated",
+    id: "dress", data: DRESS,
+    deckTag: "SIMULATED DATA", deckTagCls: "demo",
+    deckName: "👗 Green Bodycon Dress · M",
+    deckSub: "Amazon-style marketplace search · 412 results → 38 that actually match",
+    why: "Simulated end-to-end for the search-relevance use case: slop — wrong "
+       + "size, wrong shade, accessories, bait pricing — is cut with a reason "
+       + "before it can waste your click.",
     title: "“Green Bodycon Dress Medium”",
     sub: "Amazon-style marketplace search · simulated market · 412 results → "
        + "38 that actually match → priced on their own spectrum",
@@ -246,7 +278,6 @@ const SCENARIOS = [
       {cls:"zover", head:"□ OVER-ASK", n:"5 listings",
        sub:"above $102 — “boutique edition” markups on the same product."},
     ],
-    funnelTitle: "✂ 374 of 412 results were slop — filtered before you clicked",
     caption: "Simulated marketplace data — illustrative only, not affiliated "
       + "with Amazon and not real listings; product photos are illustrative "
       + "of the category, not the (fictional) listings. The slop taxonomy "
@@ -274,7 +305,15 @@ const chipOf = v => CHIP[v] || v;
 /* ---- mount + render ------------------------------------------------------ */
 const root = document.getElementById("price");
 root.innerHTML = `
-  <div class="pp-tabs" role="tablist" aria-label="Scenario"></div>
+  <div class="pp-deck">
+    <p class="pp-note"><b>These two cards are the demo — pick either one.</b>
+    Both are standalone use-case scenarios for the app: 🎮 replays a <b>real
+    eBay capture</b> of a known scam magnet; 👗 is <b>simulated end-to-end</b>
+    to show the search-relevance use case. Why they're unique: shopping sites
+    only show asking prices — ScamShield plots every ask against what <b>real
+    buyers actually paid</b> and filters the junk <b>before you click</b>.</p>
+    <div class="pp-deck-grid" role="tablist" aria-label="Scenario"></div>
+  </div>
   <div class="pp-head">
     <div><h2 class="pp-title"></h2><p class="pp-sub"></p></div>
     <div class="pp-chips"></div>
@@ -301,7 +340,7 @@ root.innerHTML = `
   <p class="pp-caption"></p>`;
 
 const $ = s => root.querySelector(s);
-const tabsEl = $(".pp-tabs"), titleEl = $(".pp-title"), subEl = $(".pp-sub"),
+const deckEl = $(".pp-deck-grid"), titleEl = $(".pp-title"), subEl = $(".pp-sub"),
       chipsEl = $(".pp-chips"), pillEl = $(".pp-vpill"), statsEl = $(".pp-vstats"),
       plotEl = $(".pp-plot"), zonesEl = $(".pp-zones"), funnelEl = $(".pp-funnel"),
       stripEl = $(".pp-strip"), countEl = $(".pp-count"), tbody = root.querySelector(".pp-table tbody"),
@@ -398,7 +437,9 @@ function buildSVG(mini) {
        + `<text class="pp-b" data-b="0" x="${x1 - 4}" y="${top + 11}" text-anchor="end" font-size="9.5" font-weight="700" fill="${cssVar("--accent")}" letter-spacing=".5">□ OVER-ASK</text>`
        + `<text class="pp-b" data-b="1" x="${x1}" y="${base - 10}" text-anchor="end" font-size="9" fill="${cssVar("--muted")}" font-style="italic">silhouette: ${Number(d.zones.sold.street + d.zones.sold.gap_lo + d.zones.sold.scam + d.zones.sold.gap_hi + d.zones.sold.over).toLocaleString("en-US")} sold prices</text>`;
   }
-  const h = mini ? 76 : 250;
+  /* trimmed from 250: chart content ends at y≈197 (axis + tick labels) — the
+     old viewBox left a ~50-unit dead band that read as empty page space */
+  const h = mini ? 76 : 206;
   return `<svg viewBox="0 0 ${W} ${h}" role="img" aria-label="Price spectrum: live asks plotted over the sold-price density">${g}</svg>`;
 }
 
@@ -424,32 +465,30 @@ function buildZones() {
     </div>`).join("");
 }
 
-/* ---- funnel card --------------------------------------------------------- */
+/* ---- funnel card (gpu only — walkthrough 2026-09-21 dropped the dress
+   scenario's slop-funnel section; its deck card carries the explanation) --- */
 function buildFunnel() {
   const d = D();
-  if (S().id === "gpu") {
-    const rl = d.reasons_live;
-    const LINES = [
-      ["not the actual card", rl.product_mismatch],
-      ["accessory-only listing", rl.accessory_only],
-      ["3090 Ti dressed as a 3090", rl.ti_variant],
-      ["ambiguous multi-variant listing", rl.ambiguous_multivariant],
-      ["bundle / multi-item lot", rl.bundle_multi],
-    ];
-    funnelEl.innerHTML = `<h4>${S().funnelTitle}</h4>`
-      + LINES.filter(l => l[1]).map(l =>
-        `<div class="fl"><b>${l[1]}</b><span class="cut">✂</span><span>${l[0]}</span></div>`).join("")
-      + `<div class="fl"><b>+${(rl.ambiguous_accessory||0)+(rl.ambiguous_bundle||0)+(rl.ambiguous_formfactor||0)+(rl.engineering_board||0)}</b><span class="cut">✂</span><span>ambiguous listings + a $30,000 “engineering sample”</span></div>`
-      + `<div class="fsum">377 live + 865 sold excluded — every one a listing you didn’t have to open.</div>`
-      + `<details><summary>evidence — real excluded listings</summary>${evidenceRows(d)}</details>`;
-  } else {
-    funnelEl.innerHTML = `<h4>${S().funnelTitle}</h4>`
-      + d.funnel.map(f =>
-        `<div class="fl"><b>${f.n}</b><span class="cut">✂</span><span>${f.why}</span></div>`).join("")
-      + `<div class="fsum">38 relevant results → priced on their own spectrum below. `
-      + `Every one of the 374 was a product page you didn’t waste a click on.</div>`
-      + `<details><summary>what the slop looked like</summary>${evidenceRows(d)}</details>`;
+  if (S().id !== "gpu") {
+    funnelEl.innerHTML = "";
+    funnelEl.style.display = "none";
+    return;
   }
+  funnelEl.style.display = "";
+  const rl = d.reasons_live;
+  const LINES = [
+    ["not the actual card", rl.product_mismatch],
+    ["accessory-only listing", rl.accessory_only],
+    ["3090 Ti dressed as a 3090", rl.ti_variant],
+    ["ambiguous multi-variant listing", rl.ambiguous_multivariant],
+    ["bundle / multi-item lot", rl.bundle_multi],
+  ];
+  funnelEl.innerHTML = `<h4>${S().funnelTitle}</h4>`
+    + LINES.filter(l => l[1]).map(l =>
+      `<div class="fl"><b>${l[1]}</b><span class="cut">✂</span><span>${l[0]}</span></div>`).join("")
+    + `<div class="fl"><b>+${(rl.ambiguous_accessory||0)+(rl.ambiguous_bundle||0)+(rl.ambiguous_formfactor||0)+(rl.engineering_board||0)}</b><span class="cut">✂</span><span>ambiguous listings + a $30,000 “engineering sample”</span></div>`
+    + `<div class="fsum">377 live + 865 sold excluded — every one a listing you didn’t have to open.</div>`
+    + `<details><summary>evidence — real excluded listings</summary>${evidenceRows(d)}</details>`;
 }
 function evidenceRows(d) {
   return Object.entries(d.evidence).slice(0, 6).map(([k, e]) =>
@@ -533,21 +572,26 @@ function play() {
   timer = setTimeout(step, 350);
 }
 
-/* ---- tabs + deep links (map.html pattern) -------------------------------- */
-function buildTabs() {
-  tabsEl.innerHTML = "";
+/* ---- scenario deck + deep links (was tab pills; map.html deep-link pattern) */
+function buildDeck() {
+  deckEl.innerHTML = "";
   SCENARIOS.forEach((sc, i) => {
     const b = document.createElement("button");
-    b.className = "pp-tab"; b.type = "button"; b.textContent = sc.tab;
+    b.className = "pp-scard"; b.type = "button";
     b.setAttribute("role", "tab");
     b.setAttribute("aria-selected", String(i === cur));
+    b.innerHTML = `<span class="pp-scard-tag ${sc.deckTagCls}">${sc.deckTag}</span>`
+      + `<span class="now" aria-hidden="true">● viewing</span>`
+      + `<span class="pp-scard-name">${sc.deckName}</span>`
+      + `<span class="pp-scard-sub">${sc.deckSub}</span>`
+      + `<span class="pp-scard-why">${sc.why}</span>`;
     b.addEventListener("click", () => setScenario(i));
-    tabsEl.appendChild(b);
+    deckEl.appendChild(b);
   });
 }
 function setScenario(i) {
   cur = i;
-  [...tabsEl.children].forEach((b, j) => b.setAttribute("aria-selected", String(j === cur)));
+  [...deckEl.children].forEach((b, j) => b.setAttribute("aria-selected", String(j === cur)));
   const u = new URL(location);
   u.searchParams.set("s", S().id);
   history.replaceState(null, "", u);
@@ -555,7 +599,7 @@ function setScenario(i) {
 }
 
 $(".pp-replay").addEventListener("click", play);
-buildTabs(); fillScenario(); play();
+buildDeck(); fillScenario(); play();
 })();
 </script>
 </body>
