@@ -105,7 +105,7 @@ function diagRow(status, title, why, ms) {
 
 /* One fetch → all three rows resolve together (the server runs the checks).
    Amber "···" while in flight, then GO/OFF. Click = re-run for fresh results. */
-async function runDiag() {
+async function runDiag(openPanel = true) {
   const btn = $("diagBtn"), panel = $("diagPanel"),
         rows = $("diagRows"), verdict = $("diagVerdict");
   if (!btn || !panel || diagRunning) return;
@@ -114,7 +114,7 @@ async function runDiag() {
   rows.innerHTML = ["key", "net", "ping"].map(id =>
     diagRow("run", DIAG_TITLES[id] || "z.ai ping", "", "")).join("");
   verdict.style.display = "none";
-  panel.classList.add("open");
+  if (openPanel) panel.classList.add("open");
   try {
     const d = await api("/api/diagnostics");
     rows.innerHTML = d.checks.map(c => {
@@ -218,7 +218,10 @@ async function siteHeader() {
     document.addEventListener("click", e => {
       if (!e.target.closest(".diagwrap")) $("diagPanel").classList.remove("open");
     });
-    runDiag();  // auto-run once per page load (approved default)
+    // auto-run once per page load (approved default). The panel itself
+    // auto-opens only where it fits (wide screens); on phones the pill
+    // still resolves to GO/OFF and a tap opens the bottom sheet.
+    runDiag(matchMedia("(min-width:701px)").matches);
   }
   pollConc();                       // live concurrency number…
   setInterval(pollConc, 3000);      // …refreshed every 3 s

@@ -8,9 +8,12 @@ a{color:var(--accent-ink)}
 /* sticky site header (rendered by app.js into #sitenav) */
 header.site{position:sticky;top:0;z-index:50;border-bottom:1px solid var(--line);
   background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(8px)}
-header.site .wrap{display:flex;align-items:center;gap:18px;padding:12px 20px;flex-wrap:wrap}
+header.site .wrap{display:flex;align-items:center;gap:18px;padding:12px 20px;flex-wrap:nowrap}
 header.site .logo{font-weight:700;font-size:1.02rem;color:var(--ink);text-decoration:none;display:flex;gap:8px;align-items:center}
-header.site nav{display:flex;gap:4px;flex-wrap:wrap}
+header.site .logo,header.site .diagwrap,header.site .mode-chip{flex:none}
+header.site nav{display:flex;gap:4px;flex-wrap:nowrap;flex:1 1 auto;min-width:0;
+  overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+header.site nav::-webkit-scrollbar{display:none}
 header.site nav a{padding:6px 11px;border-radius:999px;text-decoration:none;color:var(--muted);font-size:.92rem}
 header.site nav a:hover{color:var(--ink);background:var(--accent-soft)}
 header.site nav a.active{color:var(--accent-ink);background:var(--accent-soft);font-weight:600}
@@ -133,4 +136,18 @@ footer.site a{color:var(--muted)}
 .diag-panel .verdict.go{background:var(--good-soft);color:var(--good)}
 .diag-panel .verdict.off{background:var(--bad-soft);color:var(--bad)}
 .diag-panel .verdict small{display:block;font-weight:400;color:var(--muted);font-size:.76rem;margin-top:1px}
-.diag-panel .ctx{margin-top:8px;font:.74rem/1.5 var(--font-mono);color:var(--muted)}
+.diag-panel .ctx{margin-top:8px;font:.74rem/1.5 var(--font-mono);color:var(--muted);overflow-wrap:anywhere}
+
+/* small screens (matches the /map + /price component breakpoint): the nav
+   gets its own full-bleed swipeable row under the logo row, the diagnostics
+   dropdown becomes a fixed bottom sheet (it can't clip or cover page content
+   mid-header), and inputs get a little more room */
+@media (max-width:700px){
+  .wrap{padding:0 14px}
+  header.site .wrap{padding:10px 14px;gap:8px;flex-wrap:wrap}
+  header.site nav{order:9;flex-basis:100%;margin:0 -14px;padding:0 14px 2px}
+  header.site nav a{flex:none;padding:6px 10px;font-size:.88rem}
+  .diag-panel{position:fixed;left:12px;right:12px;top:auto;bottom:12px;width:auto;
+    max-height:min(70vh,480px);overflow-y:auto;z-index:60}
+  textarea{min-height:120px}
+}
