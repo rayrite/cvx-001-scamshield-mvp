@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat Radar — reported U.S. locations</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/udl.css">
+<link rel="stylesheet" href="/app.css">
+<script src="/udl.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"
+        integrity="sha384-cCVCZkAjYNxaYKbM8lsArLznDF/SvMFr1jcZrvOpSTCa0W40ZAdLzHCEulnUa5i7"
+        crossorigin="anonymous"></script>
+<style>
+/* recall-map-embed — scoped component styles, UDL-bridged (same pattern as the
+   RecallCheck v2 skill's overview-map component). Everything lives under
+   .recall-map-embed; the app's /theme page restyles this card like any other. */
+.recall-map-embed{
+  --rm-surface:var(--card);
+  --rm-text:var(--ink);
+  --rm-muted:var(--muted);
+  --rm-border:var(--line);
+  --rm-accent:var(--accent);
+  --rm-chip-bg:var(--accent-soft);
+  --rm-radius:12px;
+  box-sizing:border-box;display:block;width:100%;
+  padding:16px;background:var(--rm-surface);color:var(--rm-text);
+  border:1px solid var(--rm-border);border-radius:var(--rm-radius);
+}
+.recall-map-embed *{box-sizing:border-box}
+.rm-head{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;
+  justify-content:space-between;margin-bottom:10px}
+.rm-title{margin:0;font-size:1.02rem;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+.rm-sub{margin:0;color:var(--rm-muted);font-size:.82rem}
+.rm-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.rm-chip{border:1px solid var(--rm-border);border-radius:999px;padding:2px 10px;
+  font-size:.7rem;letter-spacing:.03em;color:var(--rm-muted)}
+.rm-chip.demo{border-color:var(--warn);color:var(--warn)}
+.rm-chip.geo{border-color:var(--accent);color:var(--accent)}
+.rm-plot{width:100%;aspect-ratio:16/10;min-height:300px;max-height:560px;
+  border-radius:8px;overflow:hidden}
+@media (max-width:480px){.rm-plot{aspect-ratio:1/1;min-height:300px}}
+.rm-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.rm-btn{appearance:none;font:inherit;font-size:.8rem;color:var(--rm-text);
+  background:var(--rm-chip-bg);border:1px solid var(--rm-border);border-radius:999px;
+  padding:6px 14px;cursor:pointer;min-height:34px}
+.rm-btn:hover{border-color:var(--rm-accent)}
+.rm-btn[aria-pressed="true"]{border-color:var(--rm-accent);color:var(--rm-accent)}
+.rm-count{margin-left:auto;color:var(--rm-muted);font-size:.82rem;
+  font-variant-numeric:tabular-nums}
+.rm-count.pulse{animation:rmpulse .5s ease}
+@keyframes rmpulse{0%{color:var(--rm-accent);transform:scale(1.06)}100%{transform:scale(1)}}
+.rm-error{margin:10px 0 0;padding:10px 12px;border:1px solid var(--rm-border);
+  border-radius:8px;background:var(--rm-chip-bg);color:var(--rm-muted);font-size:.84rem}
+
+/* the unfolding timeline — one line per landed marker */
+.rm-timeline{margin-top:12px;max-height:180px;overflow-y:auto;
+  border-top:1px dashed var(--rm-border);padding-top:8px;
+  display:grid;gap:5px;scrollbar-width:thin}
+.rm-ev{display:flex;gap:9px;align-items:baseline;font-size:.8rem;
+  animation:rmslide .35s ease both}
+.rm-ev .d{font:.72rem var(--font-mono);color:var(--rm-muted);min-width:52px}
+.rm-ev .dot{width:8px;height:8px;border-radius:50%;flex:none;
+  align-self:center;border:1px solid var(--rm-border)}
+.rm-ev.flag .dot{border-radius:2px;border-color:var(--warn)}
+.rm-ev.flag{color:var(--warn)}
+@keyframes rmslide{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.rm-ev{animation:none}.rm-count.pulse{animation:none}}
+
+.rm-caption{margin:10px 0 0;color:var(--rm-muted);font-size:.78rem;line-height:1.5}
+
+/* the location table — the map's data of record (accessible representation) */
+.rm-table{margin-top:14px}
+.rm-table summary{cursor:pointer;font-size:.86rem;color:var(--rm-muted)}
+.rm-table table{width:100%;border-collapse:collapse;margin-top:8px;font-size:.76rem}
+.rm-table th{text-align:left;color:var(--rm-muted);font-weight:600;
+  border-bottom:1px solid var(--rm-border);padding:4px 8px;white-space:nowrap}
+.rm-table td{border-bottom:1px solid var(--rm-border);padding:4px 8px;vertical-align:top}
+.rm-table td.mono{font-family:var(--font-mono);white-space:nowrap}
+.rm-table tr.flag td{color:var(--warn)}
+</style>
+</head>
+<body>
+<div id="sitenav"></div>
+
+<main class="wrap">
+  <div class="pagehead">
+    <h1>🗺️ Threat Radar</h1>
+    <p>Where a recall or outbreak actually lands, on a geocode-accurate U.S. map.
+       In production this card is a <b>post-processing stage</b> on recall research:
+       the report's place names are extracted into a location table, geocoded by
+       real geocoders (Census · Nominatim), and pinned from those coordinates —
+       never from a generated illustration. This page demos the renderer with an
+       <b>illustrative dataset</b>.</p>
+  </div>
+
+  <div class="recall-map-embed" id="radar" role="region"
+       aria-label="Threat Radar — reported U.S. locations map"
+       data-title="FreshCrunch packaged salads — Cyclospora outbreak"
+       data-as-of="2026-09-21"></div>
+</main>
+
+<div id="sitefooter"></div>
+
+<script src="/app.js"></script>
+<script>
+(() => {
+"use strict";
+
+/* --- illustrative location table (the real feature geocodes this from a live
+   report; here the coordinates are the known city coordinates themselves) ---- */
+const ROWS = [
+  {raw_text:"Salinas Valley processing fields", locality:"Salinas", admin1:"CA", county:"Monterey",
+   lat:36.6777, lon:-121.6555, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"manufacturing", n_cases:null, source_citation:"FDA inspection posting (illustrative)",
+   confidence:"high", notes:"leafy-green processing region; origin of the implicated lots", day:1},
+  {raw_text:"Yuma winter-growing shed", locality:"Yuma", admin1:"AZ", county:"Yuma",
+   lat:32.6927, lon:-114.6277, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"manufacturing", n_cases:null, source_citation:"distributor statement (illustrative)",
+   confidence:"medium", notes:"secondary processing site", day:1},
+  {raw_text:"Metro Atlanta distribution center", locality:"Atlanta", admin1:"GA", county:"Fulton",
+   lat:33.7490, lon:-84.3880, geocode_method:"nominatim", geocode_precision:"metro",
+   event_type:"distribution", n_cases:null, source_citation:"retail distribution list (illustrative)",
+   confidence:"medium", notes:"metro precision — ring on the principal city, no downtown pin claim", day:3},
+  {raw_text:"Detroit, MI", locality:"Detroit", admin1:"MI", county:"Wayne",
+   lat:42.3316, lon:-83.0466, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"confirmed_case", n_cases:6, source_citation:"state outbreak update (illustrative)",
+   confidence:"high", notes:"largest metro cluster", labelpos:"bottom right", day:4},
+  {raw_text:"Grand Rapids, MI", locality:"Grand Rapids", admin1:"MI", county:"Kent",
+   lat:42.9634, lon:-85.6681, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"confirmed_case", n_cases:1, source_citation:"state outbreak update (illustrative)",
+   confidence:"high", notes:"", labelpos:"middle left", day:5},
+  {raw_text:"Chicago, IL", locality:"Chicago", admin1:"IL", county:"Cook",
+   lat:41.8781, lon:-87.6298, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"confirmed_case", n_cases:3, source_citation:"state outbreak update (illustrative)",
+   confidence:"high", notes:"", labelpos:"bottom center", day:5},
+  {raw_text:"Milwaukee, WI", locality:"Milwaukee", admin1:"WI", county:"Milwaukee",
+   lat:43.0389, lon:-87.9065, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"confirmed_case", n_cases:3, source_citation:"state outbreak update (illustrative)",
+   confidence:"high", notes:"", labelpos:"top left", day:6},
+  {raw_text:"Minneapolis, MN", locality:"Minneapolis", admin1:"MN", county:"Hennepin",
+   lat:44.9778, lon:-93.2650, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"confirmed_case", n_cases:2, source_citation:"state outbreak update (illustrative)",
+   confidence:"high", notes:"", day:7},
+  {raw_text:"Des Moines, IA", locality:"Des Moines", admin1:"IA", county:"Polk",
+   lat:41.5868, lon:-93.6250, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"confirmed_case", n_cases:2, source_citation:"state outbreak update (illustrative)",
+   confidence:"high", notes:"", day:8},
+  {raw_text:"Omaha, NE", locality:"Omaha", admin1:"NE", county:"Douglas",
+   lat:41.2565, lon:-95.9345, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"confirmed_case", n_cases:4, source_citation:"state outbreak update (illustrative)",
+   confidence:"high", notes:"", labelpos:"bottom left", day:8},
+  {raw_text:"Kansas City, MO", locality:"Kansas City", admin1:"MO", county:"Jackson",
+   lat:39.0997, lon:-94.5786, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"confirmed_case", n_cases:2, source_citation:"state outbreak update (illustrative)",
+   confidence:"high", notes:"", labelpos:"bottom center", day:9},
+  {raw_text:"St. Louis, MO", locality:"St. Louis", admin1:"MO", county:"St. Louis City",
+   lat:38.6270, lon:-90.1994, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"confirmed_case", n_cases:1, source_citation:"state outbreak update (illustrative)",
+   confidence:"high", notes:"deduped into MO total; shown at city precision", day:10},
+  {raw_text:"Columbus, OH", locality:"Columbus", admin1:"OH", county:"Franklin",
+   lat:39.9612, lon:-82.9988, geocode_method:"nominatim", geocode_precision:"place",
+   event_type:"confirmed_case", n_cases:2, source_citation:"state outbreak update (illustrative)",
+   confidence:"high", notes:"", day:11},
+  {raw_text:"cases across Michigan", locality:null, admin1:"MI", county:null,
+   lat:43.6, lon:-84.6, geocode_method:"state_centroid", geocode_precision:"state",
+   event_type:"confirmed_case", n_cases:23, source_citation:"CDC investigation page (illustrative)",
+   confidence:"high", notes:"statewide total — state-level marker, never dressed up as a city",
+   labelpos:"top right", day:12},
+  {raw_text:"Springfield", locality:"Springfield", admin1:null, county:null,
+   lat:null, lon:null, geocode_method:"ambiguous", geocode_precision:"unknown",
+   event_type:"suspected_case", n_cases:2, source_citation:"social media summary (illustrative)",
+   confidence:"low", notes:"which Springfield? no state context — listed, not plotted", day:13},
+  {raw_text:"Ontario, Canada", locality:null, admin1:"ON", county:null,
+   lat:null, lon:null, geocode_method:null, geocode_precision:"non_us",
+   event_type:"confirmed_case", n_cases:3, source_citation:"PHAC notice (illustrative)",
+   confidence:"medium", notes:"non-U.S. site — kept in the table, never plotted", day:14},
+];
+
+const EVENT_COLORS = {
+  confirmed_case:"#c0392b", suspected_case:"#e67e22", probable_case:"#e67e22",
+  distribution:"#0b5cad", manufacturing:"#7d3c98", origin:"#7d3c98",
+  retail:"#0c7a43", other:"#5d6d7e",
+};
+const EVENT_LABELS = {
+  confirmed_case:"confirmed cases", suspected_case:"suspected cases",
+  distribution:"distribution", manufacturing:"origin / processing", other:"other",
+};
+const CAPTION = "Markers are plotted from geocoded coordinates in the location table, not from a generated illustration.";
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const coarse = matchMedia("(pointer: coarse)").matches;
+
+const root = $("radar");
+const TITLE = root.dataset.title, AS_OF = root.dataset.asOf;
+
+/* --- static DOM ---------------------------------------------------------- */
+root.innerHTML = `
+  <div class="rm-head">
+    <div>
+      <h2 class="rm-title">${esc(TITLE)}</h2>
+      <p class="rm-sub">reported U.S. locations · as of ${esc(AS_OF)} · marker size ∝ reported case count</p>
+    </div>
+    <div class="rm-chips">
+      <span class="rm-chip geo">geo · post-processor</span>
+      <span class="rm-chip demo">illustrative demo data</span>
+    </div>
+  </div>
+  <div class="rm-plot" id="rmPlot"></div>
+  <div class="rm-controls">
+    <button class="rm-btn" id="rmReplay">▶ Replay unfold</button>
+    <button class="rm-btn" id="rmLabels" aria-pressed="true">Labels: on</button>
+    <span class="rm-count" id="rmCount"></span>
+  </div>
+  <div class="rm-timeline" id="rmTimeline" aria-live="polite"></div>
+  <p class="rm-caption">${esc(CAPTION)} <b>MI*</b> is a statewide total, plotted at
+    the state level (diamond) — never dressed up as a city. Dataset: simulated
+    outbreak for renderer demonstration — the production stage geocodes real
+    recall-report locations through the same table schema.</p>
+  <details class="rm-table" id="rmTable"><summary>Location table — ${ROWS.length} rows (the map's data of record)</summary>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>raw text</th><th>place</th><th>state</th><th>precision</th>
+        <th>event</th><th>cases</th><th>geocode</th><th>conf.</th><th>notes</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </details>`;
+
+const plotEl = $("rmPlot"), countEl = $("rmCount"), timelineEl = $("rmTimeline");
+
+/* table rows — flagged and non-U.S. rows highlighted amber */
+const tbody = root.querySelector(".rm-table tbody");
+for (const r of ROWS) {
+  const tr = document.createElement("tr");
+  if (r.lat == null) tr.className = "flag";
+  tr.innerHTML =
+    `<td>${esc(r.raw_text)}</td>` +
+    `<td>${esc(r.locality || "—")}</td>` +
+    `<td class="mono">${esc(r.admin1 || "—")}</td>` +
+    `<td class="mono">${esc(r.geocode_precision)}</td>` +
+    `<td>${esc(EVENT_LABELS[r.event_type] || r.event_type)}</td>` +
+    `<td class="mono">${r.n_cases == null ? "—" : r.n_cases}</td>` +
+    `<td class="mono">${esc(r.geocode_method || "—")}</td>` +
+    `<td>${esc(r.confidence)}</td>` +
+    `<td>${esc(r.notes)}</td>`;
+  tbody.appendChild(tr);
+}
+
+/* --- UDL-aware plot colors: read the live tokens, blend in JS (hex is what
+   udl.css puts on :root — concrete values, no color-mix needed) ------------ */
+const cssVar = name => getComputedStyle(root).getPropertyValue(name).trim();
+function mix(a, b, pct) {  // blend hex a into hex b by pct of a
+  const pa = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map(i => parseInt(b.slice(i, i + 2), 16));
+  return "#" + pa.map((v, i) => Math.round(v * pct + pb[i] * (1 - pct))
+    .toString(16).padStart(2, "0")).join("");
+}
+function themeColors() {
+  const ink = cssVar("--ink"), card = cssVar("--card");
+  return {
+    text: ink,
+    land: mix(ink, card, 0.055),
+    subunit: mix(ink, card, 0.17),
+    lake: mix(cssVar("--accent"), cssVar("--bg"), 0.10),
+  };
+}
+
+/* --- the unfold: markers land in outbreak-day order ------------------------
+   Labels default OFF on narrow cards (<700px) — the clustered Midwest cities
+   are unreadable at phone widths; the toggle brings them back. */
+let revealed = 0, timer = null;
+const showLabelsWide = root.clientWidth >= 700;
+let showLabels = showLabelsWide;
+const labelsBtn = $("rmLabels");
+labelsBtn.textContent = "Labels: " + (showLabels ? "on" : "off");
+labelsBtn.setAttribute("aria-pressed", String(showLabels));
+
+const plottable = r => r.lat != null && r.lon != null && r.geocode_precision !== "non_us";
+const label = r => (r.locality ? r.locality : r.admin1) +
+  (r.geocode_precision === "state" ? "*" : "");
+const sizeOf = r => r.n_cases == null ? (coarse ? 13 : 10)
+  : Math.max(coarse ? 11 : 8, Math.min(30, 6 + Math.sqrt(r.n_cases) * 4));
+
+function render() {
+  if (typeof Plotly === "undefined") { cdnError(); return; }
+  const shown = ROWS.slice(0, revealed).filter(plottable);
+  const traces = [];
+  for (const et of [...new Set(shown.map(r => r.event_type))]) {
+    const rs = shown.filter(r => r.event_type === et);
+    traces.push({
+      type: "scattergeo", mode: showLabels ? "markers+text" : "markers",
+      name: EVENT_LABELS[et] || et, textfont: {size: 9},
+      textposition: rs.map(r => r.labelpos || "top center"),
+      lat: rs.map(r => r.lat), lon: rs.map(r => r.lon),
+      text: rs.map(label), hoverinfo: "text",
+      hovertext: rs.map(r => [
+        r.raw_text,
+        r.n_cases == null ? "count not stated" : r.n_cases + " reported case(s)",
+        EVENT_LABELS[r.event_type] || r.event_type,
+        r.geocode_precision + " precision" + (r.county ? " · " + r.county + " County" : ""),
+      ].join("<br>")),
+      marker: {
+        size: rs.map(sizeOf),
+        symbol: rs.map(r => r.geocode_precision === "state" ? "diamond" : "circle"),
+        color: EVENT_COLORS[et] || EVENT_COLORS.other,
+        line: {color: "#ffffff", width: 1},
+        opacity: 0.92,
+      },
+    });
+  }
+  const c = themeColors();
+  Plotly.react(plotEl, traces, {
+    font: {color: c.text, size: 12},
+    paper_bgcolor: "transparent", plot_bgcolor: "transparent",
+    margin: {t: 26, l: 6, r: 6, b: 6},
+    legend: {orientation: "h", font: {size: 11}, y: -0.02},
+    hoverlabel: {bgcolor: cssVar("--card"), bordercolor: cssVar("--line"),
+                 font: {color: c.text}},
+    geo: {
+      scope: "usa", projection: {type: "albers usa"},
+      showland: true, landcolor: c.land,
+      subunitcolor: c.subunit, countrycolor: c.subunit,
+      showlakes: true, lakecolor: c.lake,
+    },
+  }, {responsive: true, displayModeBar: false});
+
+  const plotted = shown.length, listed = ROWS.length - ROWS.filter(plottable).length;
+  countEl.textContent = revealed === 0 ? "" :
+    plotted + " plotted location" + (plotted === 1 ? "" : "s") +
+    (revealed >= ROWS.length && listed ? " · " + listed + " listed without coordinates" : "");
+  countEl.classList.remove("pulse"); void countEl.offsetWidth; countEl.classList.add("pulse");
+}
+
+function ticker(r) {
+  const ev = document.createElement("div");
+  ev.className = "rm-ev" + (r.lat == null ? " flag" : "");
+  const what = r.n_cases != null
+    ? `<b>${r.n_cases} case${r.n_cases === 1 ? "" : "s"}</b> · ` : "";
+  const where = r.locality ? `${esc(r.locality)}, ${esc(r.admin1)}`
+    : r.admin1 ? `statewide ${esc(r.admin1)}` : esc(r.raw_text);
+  const kind = r.lat == null
+    ? (r.geocode_precision === "non_us" ? "non-U.S. — listed, not plotted"
+                                       : "ambiguous — listed, not plotted")
+    : (EVENT_LABELS[r.event_type] || r.event_type);
+  ev.innerHTML = `<span class="d">Day ${r.day}</span>` +
+    `<span class="dot" style="background:${EVENT_COLORS[r.event_type] || EVENT_COLORS.other}"></span>` +
+    `<span>${what}${where} — ${esc(kind)}</span>`;
+  timelineEl.appendChild(ev);
+  timelineEl.scrollTop = timelineEl.scrollHeight;
+}
+
+function step() {
+  if (revealed >= ROWS.length) { stop(); return; }
+  ticker(ROWS[revealed]);
+  revealed++;
+  render();
+  if (revealed >= ROWS.length) { stop(); return; }
+  timer = setTimeout(step, reduced ? 0 : 420);
+}
+function stop() { if (timer) { clearTimeout(timer); timer = null; } }
+
+function play() {
+  stop(); revealed = 0; timelineEl.innerHTML = ""; render();
+  if (reduced) { while (revealed < ROWS.length) { ticker(ROWS[revealed]); revealed++; } render(); }
+  else timer = setTimeout(step, 350);
+}
+
+function cdnError() {
+  plotEl.style.display = "none";
+  const p = document.createElement("p");
+  p.className = "rm-error";
+  p.textContent = "The map library (plotly.js) could not be loaded from its CDN. " +
+    "No coordinates were invented to compensate — the full location table below " +
+    "remains available.";
+  root.querySelector(".rm-controls").before(p);
+}
+
+$("rmReplay").addEventListener("click", play);
+$("rmLabels").addEventListener("click", e => {
+  showLabels = !showLabels;
+  e.target.textContent = "Labels: " + (showLabels ? "on" : "off");
+  e.target.setAttribute("aria-pressed", String(showLabels));
+  render();
+});
+
+if (typeof Plotly === "undefined")
+  window.addEventListener("error", cdnError, {once: true});
+play();
+})();
+</script>
+</body>
+</html>
