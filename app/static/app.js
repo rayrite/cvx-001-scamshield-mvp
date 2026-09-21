@@ -144,7 +144,23 @@ async function runDiag() {
 // --- live concurrency (the pill's trailing number): GET /api/metrics -----------
 /* z.ai requests in flight right now, measured at the app's single HTTP
    choke point. Shows "n / limit" when ZAI_CONCURRENCY_LIMIT is configured;
-   turns amber after a recent 429 or when the limit is reached. */
+   turns amber after a recent 429 or when the limit is reached. The same
+   payload carries the current model pair, so the pull-down's context line
+   (intake · research) follows swaps on every open page within one poll. */
+let diagDataDir = "";
+
+function paintCtx(intake, research) {
+  const cx = $("diagCtx");
+  if (cx && intake && research)
+    cx.textContent = (diagDataDir ? `data dir: ${diagDataDir} · ` : "") +
+                     `intake: ${intake} · research: ${research}`;
+}
+
+function applyHealthCtx(h) {
+  if (h && h.data_dir) diagDataDir = h.data_dir;
+  paintCtx(h && h.intake_model, h && h.research_model);
+}
+
 function paintConc(m) {
   const el = $("concLabel");
   if (!el) return;
@@ -154,6 +170,7 @@ function paintConc(m) {
   el.classList.toggle("warn", !!hot);
   el.title = hot ? "AI service at capacity — new requests show a graceful retry notice"
                  : "z.ai requests in flight right now";
+  paintCtx(m.intake_model, m.research_model);
 }
 async function pollConc() {
   try { paintConc(await api("/api/metrics")); } catch { /* transient */ }
@@ -211,9 +228,7 @@ async function siteHeader() {
       chip.className = "mode-chip" + (h.demo_mode ? " demo" : "");
       chip.style.display = "";
     }
-    const cx = $("diagCtx");
-    if (cx) cx.textContent =
-      `data dir: ${h.data_dir} · ${h.intake_model} → ${h.research_model}`;
+    applyHealthCtx(h);
     document.dispatchEvent(new CustomEvent("health", {detail: h}));
   } catch { /* ignore */ }
 }

@@ -75,8 +75,10 @@
     </div>
 
     <p class="hint" style="margin-top:18px">Why the split: the 5-series flagships are text-only
-      reasoning models, while the Flash tiers are the multimodal (vision) line — there is no
-      separate GLM-5V. Prices are USD per million tokens (docs.z.ai, 2026-09-20); the intake
+      reasoning models, while the Flash tiers are the multimodal (vision) line. The 4-era
+      variant names (V, Air, Turbo) have no 5-series counterparts — vision moved into Flash,
+      and FlashX <i>is</i> the speed tier (200 tok/s). These six are the complete GLM-5 family
+      (docs.z.ai, checked 2026-09-21). Prices are USD per million tokens; the intake
       transcript of one screenshot typically costs well under a cent on Flash.</p>
   </div>
 </main>
@@ -139,11 +141,8 @@ $("save").addEventListener("click", async () => {
     selection = r.selection;
     render();
     $("saved").textContent = "✓ saved — applied instantly across the app";
-    try {  // refresh the header's context line (it is otherwise set once per load)
-      const h = await api("/api/health");
-      const cx = $("diagCtx");
-      if (cx) cx.textContent =
-        `data dir: ${h.data_dir} · ${h.intake_model} → ${h.research_model}`;
+    try {  // refresh the header's context line (app.js — also follows the 3 s poll)
+      applyHealthCtx(await api("/api/health"));
     } catch { /* cosmetic only */ }
   } catch (err) {
     $("saved").textContent = "";
