@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Models — GLM-5 family</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/udl.css">
+<link rel="stylesheet" href="/app.css">
+<script src="/udl.js"></script>
+<style>
+.roles{display:grid;gap:26px}
+.rolehead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.rolehead h2{margin:0;font-size:1.02rem}
+.rolehead .hint{margin:0}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.mcard{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:12px;
+  background:var(--card);padding:14px 15px;cursor:pointer;position:relative;
+  transition:border-color .15s, box-shadow .15s}
+.mcard:hover{border-color:var(--accent)}
+.mcard input{position:absolute;opacity:0;pointer-events:none}
+.mcard.sel{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 28%,transparent);
+  background:var(--accent-soft)}
+.mtop{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.mname{font-weight:700;font-size:.95rem}
+.mcard.sel .mname::after{content:" ✓";color:var(--accent)}
+.mid{font:.74rem var(--font-mono);color:var(--muted)}
+.mprice{font:600 .78rem/1.4 var(--font-mono);color:var(--ink)}
+.mprice small{font-weight:400;color:var(--muted)}
+.mblurb{font-size:.8rem;color:var(--muted);line-height:1.45}
+.mtags{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.tag{border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:.7rem;
+  color:var(--muted);letter-spacing:.03em}
+.tag.vis{border-color:var(--good);color:var(--good)}
+.nowline{margin:0 0 18px;font-size:.88rem}
+.nowline code{font-family:var(--font-mono)}
+.saved{color:var(--good);font-size:.86rem;margin-left:10px}
+</style>
+</head>
+<body>
+<div id="sitenav"></div>
+
+<main class="wrap">
+  <div class="pagehead">
+    <h1>🧠 AI Models</h1>
+    <p>The full GLM-5 family behind this app. Pick the <b>research</b> model that runs the staged
+      reasoning (with live web search) and the <b>intake</b> model that reads screenshot evidence.
+      Switching applies instantly across the app — no restart — and the header pill's trailing
+      number shows live AI calls in flight.</p>
+  </div>
+
+  <div class="panel">
+    <p class="nowline">Currently serving: <code id="now"></code></p>
+
+    <div class="row" style="margin:0 0 18px">
+      <button class="btn" id="save">Save selection</button>
+      <span class="saved" id="saved"></span>
+    </div>
+
+    <div class="roles">
+      <section>
+        <div class="rolehead">
+          <h2>🔍 Research</h2>
+          <p class="hint">staged reasoning · built-in web_search · writes the verdicts</p>
+        </div>
+        <div class="mgrid" id="gridResearch"></div>
+      </section>
+      <section>
+        <div class="rolehead">
+          <h2>📷 Intake</h2>
+          <p class="hint">vision — transcribes screenshot evidence verbatim</p>
+        </div>
+        <div class="mgrid" id="gridIntake"></div>
+      </section>
+    </div>
+
+    <p class="hint" style="margin-top:18px">Why the split: the 5-series flagships are text-only
+      reasoning models, while the Flash tiers are the multimodal (vision) line — there is no
+      separate GLM-5V. Prices are USD per million tokens (docs.z.ai, 2026-09-20); the intake
+      transcript of one screenshot typically costs well under a cent on Flash.</p>
+  </div>
+</main>
+
+<div id="sitefooter"></div>
+
+<script src="/app.js"></script>
+<script>
+let MODELS = {}, selection = {};
+
+function card(mid, m, role) {
+  const sel = selection[role] === mid;
+  const tags = [
+    m.vision ? '<span class="tag vis">vision</span>' : "",
+    m.effort_ok ? '<span class="tag">reasoning effort</span>' : "",
+  ].filter(Boolean).join("");
+  return `<label class="mcard${sel ? " sel" : ""}">
+    <input type="radio" name="${role}" value="${esc(mid)}"${sel ? " checked" : ""}>
+    <span class="mtop"><span class="mname">${esc(m.label)}</span><code class="mid">${esc(mid)}</code></span>
+    <span class="mprice">$${m.price_in.toFixed(2)} in / $${m.price_out.toFixed(2)} out
+      <small>per MTok</small></span>
+    <span class="mblurb">${esc(m.blurb)}</span>
+    <span class="mtags"><span class="tag">${esc(m.ctx)}</span>${tags}</span>
+  </label>`;
+}
+
+function render() {
+  for (const role of ["research", "intake"]) {
+    const host = $(role === "research" ? "gridResearch" : "gridIntake");
+    host.innerHTML = Object.entries(MODELS)
+      .filter(([, m]) => m.roles.includes(role))
+      .map(([mid, m]) => card(mid, m, role)).join("");
+  }
+  $("now").textContent = `${selection.intake} (intake) → ${selection.research} (research)`;
+}
+
+document.addEventListener("change", e => {
+  if (e.target.matches('.mcard input[type=radio]'))
+    e.target.closest(".mcard").classList.add("sel");
+  // deselect siblings in the same role group
+  if (e.target.name) {
+    document.querySelectorAll(`.mcard input[name=${e.target.name}]`).forEach(inp => {
+      if (inp !== e.target) inp.closest(".mcard").classList.remove("sel");
+    });
+    $("saved").textContent = "staged — press Save to apply";
+  }
+});
+
+$("save").addEventListener("click", async () => {
+  const pick = role => document.querySelector(`.mcard input[name=${role}]:checked`)?.value;
+  const body = {research: pick("research"), intake: pick("intake")};
+  if (!body.research || !body.intake) { alert("Pick one model in each role first."); return; }
+  $("saved").textContent = "saving…";
+  try {
+    const r = await api("/api/models", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    selection = r.selection;
+    render();
+    $("saved").textContent = "✓ saved — applied instantly across the app";
+    try {  // refresh the header's context line (it is otherwise set once per load)
+      const h = await api("/api/health");
+      const cx = $("diagCtx");
+      if (cx) cx.textContent =
+        `data dir: ${h.data_dir} · ${h.intake_model} → ${h.research_model}`;
+    } catch { /* cosmetic only */ }
+  } catch (err) {
+    $("saved").textContent = "";
+    alert("✖ " + err.message);
+  }
+});
+
+(async () => {
+  try {
+    const d = await api("/api/models");
+    MODELS = d.models; selection = d.selection;
+    render();
+  } catch { alert("Could not load the model registry — is the server up?"); }
+})();
+</script>
+</body>
+</html>

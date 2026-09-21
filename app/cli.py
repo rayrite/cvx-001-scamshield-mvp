@@ -114,8 +114,10 @@ def cmd_verify(base: str) -> int:
     h = r.json()
     check("health.ok", True, h.get("ok"))
     check("health.demo_mode is bool", "bool", type(h.get("demo_mode")).__name__)
-    check("health.models", "glm-5.3 / glm-5.3-flash",
-          f"{h.get('research_model')} / {h.get('intake_model')}")
+    registry = get("/api/models").json()["models"]
+    check("health.models are registry ids", "both registered",
+          f"{h.get('intake_model')} / {h.get('research_model')}",
+          ok=h.get("intake_model") in registry and h.get("research_model") in registry)
 
     # -- diagnostics beacon ---------------------------------------------------
     section("diagnostics beacon")
@@ -163,6 +165,7 @@ def cmd_verify(base: str) -> int:
         ("/learn", "Learning Center", "learn menu"),
         ("/apps", "App Library", "apps menu"),
         ("/video", "Video samples", "sample video players"),
+        ("/models", "AI Models", "model switcher"),
         ("/theme", "Universal Design Language", "theme editor"),
     ]
     for path, marker, label in PAGES:
@@ -192,6 +195,42 @@ def cmd_verify(base: str) -> int:
           ok="CLI Verify Theme" in get("/udl.css").text)
     post("/api/udl", {"name": original["name"]})
     check("udl restored", original["name"], get("/api/udl").json().get("name"))
+
+    # -- model switching (round-trip, credit-free: no call is placed) ------------
+    section("model switching")
+    m = get("/api/models").json()
+    check("model registry count", 6, len(m["models"]))
+    check("roles split 4 research / 2 intake", (4, 2),
+          (sum("research" in v["roles"] for v in m["models"].values()),
+           sum("intake" in v["roles"] for v in m["models"].values())))
+    original_sel = m["selection"]
+    check("selection matches health", "consistent",
+          "ok" if m["selection"] == {"intake": h["intake_model"],
+                                     "research": h["research_model"]} else "drift",
+          ok=m["selection"] == {"intake": h["intake_model"],
+                                "research": h["research_model"]})
+    r = post("/api/models", {"intake": "glm-5.3", "research": "glm-5.3"})
+    check("role violation rejected", 400, r.status_code)
+    r = post("/api/models", {"research": "glm-4.6"})
+    check("unknown model rejected", 400, r.status_code)
+    r = post("/api/models", {})
+    check("empty selection rejected", 400, r.status_code)
+    r = post("/api/models", {"intake": "glm-5.3-flashx"})
+    check("valid swap accepted", 200, r.status_code)
+    check("swap applied", "glm-5.3-flashx",
+          get("/api/models").json()["selection"]["intake"])
+    check("health reflects swap", "glm-5.3-flashx",
+          get("/api/health").json()["intake_model"])
+    mm = get("/api/metrics").json()
+    check("metrics follows selection", "glm-5.3-flashx", mm.get("intake_model"))
+    check("metrics counters are ints", "int/int",
+          f"{type(mm.get('inflight')).__name__}/{type(mm.get('max_seen')).__name__}",
+          ok=isinstance(mm.get("inflight"), int) and isinstance(mm.get("max_seen"), int))
+    check("metrics limit is int|null", True,
+          mm.get("limit") is None or isinstance(mm.get("limit"), int),
+          ok=mm.get("limit") is None or isinstance(mm.get("limit"), int))
+    post("/api/models", original_sel)
+    check("selection restored", original_sel, get("/api/models").json()["selection"])
 
     # -- wikis + dynamic SPA menu ---------------------------------------------
     section("Learning Center + dynamic App Library")

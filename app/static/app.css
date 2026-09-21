@@ -100,6 +100,11 @@ footer.site a{color:var(--muted)}
   0%,100%{opacity:1;box-shadow:0 0 0 0 color-mix(in srgb,var(--bea) 45%,transparent)}
   50%{opacity:.55;box-shadow:0 0 9px 3px color-mix(in srgb,var(--bea) 45%,transparent)}}
 @media (prefers-reduced-motion: reduce){.beacon{animation:none}}
+/* the pill's right segment: live z.ai in-flight count after a divider */
+.diag-div{align-self:stretch;border-left:1px solid var(--line);flex:none}
+.conc{font:700 .78rem/1 var(--font-mono);color:var(--muted);min-width:1ch;text-align:center;
+  transition:color .3s}
+.conc.warn{color:var(--warn)}
 
 /* the results dropdown (scoped — .verdict/.spin/.chk class names exist elsewhere) */
 .diag-panel{display:none;position:absolute;right:0;top:calc(100% + 10px);

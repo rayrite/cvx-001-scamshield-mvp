@@ -4,8 +4,10 @@ API (all JSON unless noted):
 
 - GET  /api/health              liveness + key/demo mode (never the key)
 - GET  /api/diagnostics         connectivity smoke test (key · net · ping)
+- GET  /api/metrics             live z.ai in-flight count + model selection
 - GET  /api/features            feature flags (set vs. effective) + inventory
 - GET  /api/modes               chat/quick mode registry with availability
+- GET/POST /api/models          GLM-5 family registry + runtime selection
 - POST /api/chat                one chat turn {mode, text, images?, conversation_id?}
 - GET  /api/conversations       recent conversations
 - GET  /api/conversations/{id}  full conversation (messages + sources)
@@ -26,7 +28,7 @@ Staged Check v2 agent (jobs):
 - POST /api/jobs/{id}/gate      {decision: go|stop|document|custom, text?}
 - GET  /api/jobs/{id}/report    cumulative markdown report
 
-Pretty pages: / (landing) · /check · /chat · /quick · /learn · /apps · /theme · /video.
+Pretty pages: / (landing) · /check · /chat · /quick · /learn · /apps · /theme · /models · /video.
 Mounts: /learn/wiki → content/wikis, /apps/spa → content/spas, then the static
 mount at / LAST so /api and the pretty routes win. If AGENT_TOKEN is set,
 mutating agent endpoints require the X-Auth-Token header.
@@ -182,19 +184,9 @@ async def diagnostics():
                            "detail": f"replied {reply.strip()[:20]!r} · "
                                      f"{usage.get('completion_tokens', 0)} tokens"})
         except zai.ZaiError as e:
-            msg = str(e)
-            if e.status == 429 and ("balance" in msg.lower() or "1113" in msg):
-                why = "z.ai account out of credit (HTTP 429 · insufficient " \
-                      "balance) — recharge needed before live demos"
-            elif e.status == 429:
-                why = "rate limited (HTTP 429) — too many requests, wait a moment and re-run"
-            elif e.status in (401, 403):
-                why = f"key invalid or revoked (HTTP {e.status})"
-            else:
-                why = f"z.ai HTTP {e.status}"
             checks.append({"id": "ping", "status": "fail", "model": zai.INTAKE_MODEL,
                            "ms": round((time.perf_counter() - t0) * 1000),
-                           "detail": why})
+                           "detail": zai.friendly(e)})
         except httpx.HTTPError as e:
             checks.append({"id": "ping", "status": "fail", "model": zai.INTAKE_MODEL,
                            "ms": round((time.perf_counter() - t0) * 1000),
@@ -214,6 +206,46 @@ async def get_features():
 async def get_modes():
     return {"modes": agents.modes_available(),
             "max_turns": chatstore.MAX_TURNS}
+
+
+@app.get("/api/metrics")
+async def metrics():
+    """Live z.ai call pressure behind the header concurrency number — public
+    like /api/health (counters and model ids only, never the key). z.ai
+    publishes per-key concurrency limits only on its logged-in console, so
+    the app measures its own in-flight requests at the HTTP choke point."""
+    limit = os.getenv("ZAI_CONCURRENCY_LIMIT", "")
+    hit = None
+    if zai.LAST_LIMIT_HIT:
+        hit = {"code": zai.LAST_LIMIT_HIT["code"],
+               "ago_s": round(time.time() - zai.LAST_LIMIT_HIT["ts"], 1)}
+    return {"inflight": zai.INFLIGHT, "max_seen": zai.MAX_SEEN,
+            "limit": int(limit) if limit.isdigit() else None,
+            "last_limit_hit": hit,
+            "intake_model": zai.INTAKE_MODEL, "research_model": zai.RESEARCH_MODEL}
+
+
+class ModelSelection(BaseModel):
+    intake: str | None = None
+    research: str | None = None
+
+
+@app.get("/api/models")
+async def models_get():
+    return {"models": zai.MODELS,
+            "selection": {"intake": zai.INTAKE_MODEL, "research": zai.RESEARCH_MODEL}}
+
+
+@app.post("/api/models")
+async def models_post(sel: ModelSelection, x_auth_token: str | None = Header(default=None)):
+    _auth(x_auth_token)
+    if not (sel.intake or sel.research):
+        raise HTTPException(400, "nothing to set — provide intake and/or research")
+    try:
+        current = zai.save_selection(sel.intake, sel.research)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"selection": current, "applied": True}
 
 
 # ---------------------------------------------------------------------- chat
@@ -294,7 +326,11 @@ async def chat(chat_in: ChatIn, x_auth_token: str | None = Header(default=None))
                 conv["budget"]["tokens_out"] = conv["budget"].get("tokens_out", 0) \
                     + (usage.get("completion_tokens", 0) or 0)
             except zai.ZaiError as e:
-                raise HTTPException(502, str(e))
+                print(f"[chat] z.ai error: {e}", flush=True)  # raw → server log
+                raise HTTPException(502, zai.friendly(e))
+            except httpx.HTTPError as e:
+                print(f"[chat] transport: {type(e).__name__}: {e}", flush=True)
+                raise HTTPException(504, zai.friendly_transport(e))
 
     chatstore.add_message(conv, "user", text or "(screenshots only)")
     chatstore.add_message(conv, "assistant", reply, sources)
@@ -498,10 +534,10 @@ async def report(jid: str, x_auth_token: str | None = Header(default=None)):
 
 _PAGES = {"check": "check.html", "chat": "chat.html", "quick": "quick.html",
           "learn": "learn.html", "apps": "apps.html", "theme": "theme.html",
-          "video": "video.html"}
+          "models": "models.html", "video": "video.html"}
 _PAGE_FLAGS = {"check": "check", "chat": "chat", "quick": "quick",
                "learn": "learning", "apps": "apps", "theme": None,
-               "video": "video"}
+               "models": None, "video": "video"}
 
 
 def _page(name: str):

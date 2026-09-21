@@ -73,6 +73,7 @@ const NAV = [
   ["/learn",   "Learn",   "learning"],
   ["/apps",    "Apps",    "apps"],
   ["/video",   "Video",   "video"],
+  ["/models",  "Models",  null],
   ["/theme",   "Theme",   null],
 ];
 
@@ -140,6 +141,24 @@ async function runDiag() {
   diagRunning = false;
 }
 
+// --- live concurrency (the pill's trailing number): GET /api/metrics -----------
+/* z.ai requests in flight right now, measured at the app's single HTTP
+   choke point. Shows "n / limit" when ZAI_CONCURRENCY_LIMIT is configured;
+   turns amber after a recent 429 or when the limit is reached. */
+function paintConc(m) {
+  const el = $("concLabel");
+  if (!el) return;
+  el.textContent = m.limit ? `${m.inflight} / ${m.limit}` : `${m.inflight}`;
+  const hot = (m.last_limit_hit && m.last_limit_hit.ago_s < 30) ||
+              (m.limit != null && m.inflight >= m.limit);
+  el.classList.toggle("warn", !!hot);
+  el.title = hot ? "AI service at capacity — new requests show a graceful retry notice"
+                 : "z.ai requests in flight right now";
+}
+async function pollConc() {
+  try { paintConc(await api("/api/metrics")); } catch { /* transient */ }
+}
+
 async function siteHeader() {
   const host = $("sitenav");
   if (!host) return;
@@ -158,8 +177,9 @@ async function siteHeader() {
     <span class="spacer"></span>
     <span class="diagwrap">
       <button class="diag" id="diagBtn" data-state="idle"
-              aria-label="System status — click to run diagnostics">
+              aria-label="System status and live AI call count — click to run diagnostics">
         <span class="beacon"></span><span id="diagLabel">···</span>
+        <span class="diag-div" aria-hidden="true"></span><span id="concLabel" class="conc">–</span>
       </button>
       <div class="diag-panel" id="diagPanel" role="status">
         <h3>System check <button id="diagClose" aria-label="Close">✕</button></h3>
@@ -181,6 +201,8 @@ async function siteHeader() {
     });
     runDiag();  // auto-run once per page load (approved default)
   }
+  pollConc();                       // live concurrency number…
+  setInterval(pollConc, 3000);      // …refreshed every 3 s
   try {
     const h = await api("/api/health");
     const chip = $("modeChip");
@@ -190,7 +212,8 @@ async function siteHeader() {
       chip.style.display = "";
     }
     const cx = $("diagCtx");
-    if (cx) cx.textContent = `data dir: ${h.data_dir} · ${h.intake_model}`;
+    if (cx) cx.textContent =
+      `data dir: ${h.data_dir} · ${h.intake_model} → ${h.research_model}`;
     document.dispatchEvent(new CustomEvent("health", {detail: h}));
   } catch { /* ignore */ }
 }
@@ -203,7 +226,7 @@ function siteFooter() {
   if (!host) return;
   host.innerHTML = `<footer class="site"><div class="wrap">
     <span>ScamShield demo · research assistance, not legal or financial advice. Verdicts are evidence snapshots, not certificates of safety.</span>
-    <span><a href="/">Home</a> · <a href="/theme">Theme</a></span>
+    <span><a href="/">Home</a> · <a href="/models">Models</a> · <a href="/theme">Theme</a></span>
   </div></footer>`;
 }
 document.addEventListener("DOMContentLoaded", siteFooter);

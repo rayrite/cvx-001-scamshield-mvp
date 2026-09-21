@@ -54,6 +54,7 @@ def new_job(text: str, images: list[str], worry: str, region: str, demo: bool) -
         "gate": None,
         "report": None,
         "error": None,
+        "error_detail": None,         # raw exception string — debugging only
         "demo": demo,
         "budget": {"model_calls": 0, "search_results": 0, "tokens_in": 0, "tokens_out": 0},
     }

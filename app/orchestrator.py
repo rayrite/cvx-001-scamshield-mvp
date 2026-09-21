@@ -116,7 +116,16 @@ def _close_stage(job: dict, entry: dict) -> None:
 
 async def _fail(job: dict, exc: Exception) -> None:
     job["status"] = "error"
-    job["error"] = f"{type(exc).__name__}: {exc}"
+    # Users see one friendly sentence; the raw detail rides along for the
+    # operator (job JSON / report debugging), never the UI.
+    if isinstance(exc, zai.ZaiError):
+        job["error"] = zai.friendly(exc)
+        job["error_detail"] = f"{type(exc).__name__}: {exc}"
+    elif isinstance(exc, httpx.HTTPError):
+        job["error"] = zai.friendly_transport(exc)
+        job["error_detail"] = f"{type(exc).__name__}: {exc}"
+    else:
+        job["error"] = f"{type(exc).__name__}: {exc}"
     jobs.save(job)
 
 

@@ -12,7 +12,12 @@ Plain httpx, no SDK: three pip packages and the app runs anywhere.
 """
 from __future__ import annotations
 
+import json
 import os
+import re
+import threading
+import time
+from pathlib import Path
 
 import httpx
 
@@ -27,12 +32,107 @@ MAX_STAGE_CALLS = int(os.getenv("MAX_STAGE_CALLS", "10"))
 # GLM-5.x thinking cannot be disabled; reasoning_effort (low/high/max, API
 # default max) is the only depth/cost lever. The skill's rubrics carry the
 # heavy reasoning scaffolding, so "low" is the sane hosted default. Only
-# GLM-5.2+ accepts the parameter, so guard on the model id.
+# GLM-5.2+ accepts the parameter — enforced per-model via MODELS below.
 REASONING_EFFORT = os.getenv("ZAI_REASONING_EFFORT", "low")
+
+# --- the GLM-5 family (docs-verified 2026-09-20) --------------------------------
+# Prices are USD per million tokens in/out. effort_ok marks GLM-5.2+ (the
+# only models that accept reasoning_effort). roles: "research" models carry
+# the web_search tool (text flagships); "intake" models accept image input
+# (the vision-class flash tiers — the 5-series has no separate V line).
+MODELS: dict[str, dict] = {
+    "glm-5.3": {
+        "label": "GLM-5.3", "vision": False, "effort_ok": True,
+        "price_in": 1.40, "price_out": 4.40, "ctx": "1M ctx · 128K out",
+        "blurb": "Flagship reasoning — the default for staged research.",
+        "roles": ("research",),
+    },
+    "glm-5.3-flash": {
+        "label": "GLM-5.3 Flash", "vision": True, "effort_ok": True,
+        "price_in": 0.15, "price_out": 0.50, "ctx": "1M ctx · 128K out",
+        "blurb": "Vision intake workhorse — reads screenshots at a tenth of flagship cost.",
+        "roles": ("intake",),
+    },
+    "glm-5.3-flashx": {
+        "label": "GLM-5.3 FlashX", "vision": True, "effort_ok": True,
+        "price_in": 0.37, "price_out": 1.25, "ctx": "1M ctx · 128K out · 200 tok/s",
+        "blurb": "The speed tier — same multimodal intake at 200 tokens/sec.",
+        "roles": ("intake",),
+    },
+    "glm-5.2": {
+        "label": "GLM-5.2", "vision": False, "effort_ok": True,
+        "price_in": 1.40, "price_out": 4.40, "ctx": "1M ctx",
+        "blurb": "Previous flagship — same price, earlier reasoning generation.",
+        "roles": ("research",),
+    },
+    "glm-5.1": {
+        "label": "GLM-5.1", "vision": False, "effort_ok": False,
+        "price_in": 1.40, "price_out": 4.40, "ctx": "1M ctx",
+        "blurb": "Earlier generation; no reasoning_effort knob.",
+        "roles": ("research",),
+    },
+    "glm-5": {
+        "label": "GLM-5", "vision": False, "effort_ok": False,
+        "price_in": 1.00, "price_out": 3.20, "ctx": "—",
+        "blurb": "The original 5-series flagship at the lowest flagship price.",
+        "roles": ("research",),
+    },
+}
+
+# --- runtime model selection (models.json, udl.json-style) -----------------------
+MODELS_FILE = Path(__file__).parent / "models.json"
+_sel_lock = threading.Lock()
+
+
+def apply_selection() -> None:
+    """Overlay a persisted models.json selection onto the env defaults.
+    Silent no-op when the file is missing or corrupt (house style —
+    features.py/udl.py behave the same)."""
+    global INTAKE_MODEL, RESEARCH_MODEL
+    try:
+        sel = json.loads(MODELS_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    for slot in ("intake", "research"):
+        mid = sel.get(slot)
+        if isinstance(mid, str) and mid in MODELS and slot in MODELS[mid]["roles"]:
+            if slot == "intake":
+                INTAKE_MODEL = mid
+            else:
+                RESEARCH_MODEL = mid
+
+
+def save_selection(intake: str | None = None, research: str | None = None) -> dict:
+    """Validate and persist a selection, then update the module globals so
+    every call-time reader (pipeline calls, /api/health, stage-log labels)
+    reflects the swap immediately. Wrong-role or unknown ids raise
+    ValueError before anything is written."""
+    global INTAKE_MODEL, RESEARCH_MODEL
+    for slot, mid in (("intake", intake), ("research", research)):
+        if mid is not None:
+            if mid not in MODELS:
+                raise ValueError(f"unknown model id {mid!r}")
+            if slot not in MODELS[mid]["roles"]:
+                why = "image input" if slot == "intake" else "the web_search tool"
+                raise ValueError(f"{mid!r} cannot serve the {slot} role (no {why})")
+    current = {"intake": INTAKE_MODEL, "research": RESEARCH_MODEL}
+    if intake:
+        current["intake"] = intake
+    if research:
+        current["research"] = research
+    with _sel_lock:
+        MODELS_FILE.write_text(json.dumps(current, indent=2) + "\n",
+                               encoding="utf-8")
+        INTAKE_MODEL, RESEARCH_MODEL = current["intake"], current["research"]
+    return current
+
+
+apply_selection()
 
 
 def _thinking(model: str) -> dict:
-    if model.startswith("glm-5") and REASONING_EFFORT in ("low", "high", "max"):
+    info = MODELS.get(model)
+    if info and info["effort_ok"] and REASONING_EFFORT in ("low", "high", "max"):
         return {"reasoning_effort": REASONING_EFFORT}
     return {}
 
@@ -53,9 +153,68 @@ INTAKE_PROMPT = (
 
 
 class ZaiError(RuntimeError):
-    def __init__(self, status: int, body: str):
+    def __init__(self, status: int, body: str,
+                 code: int | None = None, api_message: str | None = None):
         super().__init__(f"z.ai HTTP {status}: {body[:400]}")
         self.status = status
+        self.body = body              # full raw response text (debugging)
+        self.code = code              # numeric z.ai code (1113, 1302, ...) if parseable
+        self.api_message = api_message
+
+
+def _parse_error(body: str) -> tuple[int | None, str | None]:
+    """Pull (code, message) out of z.ai's {"error":{...}} envelope."""
+    try:
+        err = (json.loads(body) or {}).get("error") or {}
+        code = err.get("code")
+        return (int(code) if code is not None else None), err.get("message")
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
+        return None, None
+
+
+def _reset_from(message: str) -> str:
+    """z.ai window-limit messages end with 'will reset at {time}'."""
+    m = re.search(r"reset at [`'\"]?([^`'\"]+?)[`'\"]?\s*$", message.strip())
+    return m.group(1).rstrip(".}") if m else ""
+
+
+def friendly(exc: "ZaiError") -> str:
+    """The ONE user-facing sentence per failure class. Every surface (chat
+    bubbles, job errors, the beacon panel) speaks this — raw JSON goes to
+    logs and job.error_detail only. Codes per docs.z.ai api-code reference."""
+    code, status = exc.code, exc.status
+    if code == 1113:
+        return ("The AI account is out of credit — live results resume once "
+                "it's recharged")
+    if code in (1302, 1305):
+        return "The AI service is at capacity right now — please retry in a minute"
+    if code == 1313:
+        return ("The AI service has briefly limited this account's request "
+                "frequency — please slow down and retry shortly")
+    if code in (1308, 1310, 1316, 1317, 1318, 1319, 1320, 1321):
+        reset = _reset_from(exc.api_message or "")
+        base = "The AI service's usage window is exhausted"
+        return f"{base} — it resets at {reset}" if reset else f"{base}; please try again later"
+    if status in (401, 403):
+        return "The AI API key is invalid or revoked — the operator needs to check it"
+    if status == 429:
+        return "The AI service is rate limiting us — please wait a moment and retry"
+    return f"The AI service returned an error (HTTP {status}) — please try again"
+
+
+def friendly_transport(exc: Exception) -> str:
+    """httpx-level failures (timeouts, refused connections) — currently the
+    only other exception class that can escape a z.ai call."""
+    return "The AI service took too long to respond — please try again"
+
+
+# --- live concurrency (measured at the single HTTP choke point) ------------------
+# z.ai publishes per-key concurrency limits only on the logged-in console,
+# not in the docs — so the app measures its own in-flight requests. The
+# event loop is single-threaded; plain int mutations between awaits are safe.
+INFLIGHT = 0
+MAX_SEEN = 0
+LAST_LIMIT_HIT: dict | None = None   # {"code": int|None, "ts": float}
 
 
 def web_search_tool(today: str, count: int = 10) -> list[dict]:
@@ -82,14 +241,23 @@ def web_search_tool(today: str, count: int = 10) -> list[dict]:
 
 
 async def _post(client: httpx.AsyncClient, payload: dict, timeout: float) -> dict:
-    resp = await client.post(
-        ZAI_URL,
-        json=payload,
-        headers={"Authorization": f"Bearer {os.environ['ZAI_API_KEY']}"},
-        timeout=timeout,
-    )
+    global INFLIGHT, MAX_SEEN, LAST_LIMIT_HIT
+    INFLIGHT += 1
+    MAX_SEEN = max(MAX_SEEN, INFLIGHT)
+    try:
+        resp = await client.post(
+            ZAI_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {os.environ['ZAI_API_KEY']}"},
+            timeout=timeout,
+        )
+    finally:
+        INFLIGHT -= 1
     if resp.status_code >= 400:
-        raise ZaiError(resp.status_code, resp.text)
+        code, message = _parse_error(resp.text)
+        if resp.status_code == 429:
+            LAST_LIMIT_HIT = {"code": code, "ts": time.time()}
+        raise ZaiError(resp.status_code, resp.text, code, message)
     return resp.json()
 
 
