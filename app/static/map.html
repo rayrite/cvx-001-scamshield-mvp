@@ -28,6 +28,13 @@
   border:1px solid var(--rm-border);border-radius:var(--rm-radius);
 }
 .recall-map-embed *{box-sizing:border-box}
+.rm-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.rm-tab{appearance:none;font:inherit;font-size:.8rem;color:var(--rm-muted);
+  background:transparent;border:1px solid var(--rm-border);border-radius:999px;
+  padding:6px 14px;cursor:pointer;min-height:34px}
+.rm-tab:hover{border-color:var(--rm-accent);color:var(--rm-text)}
+.rm-tab[aria-selected="true"]{border-color:var(--rm-accent);color:var(--rm-accent);
+  background:var(--rm-chip-bg);font-weight:700}
 .rm-head{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;
   justify-content:space-between;margin-bottom:10px}
 .rm-title{margin:0;font-size:1.02rem;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
@@ -68,6 +75,8 @@
 @media (prefers-reduced-motion: reduce){.rm-ev{animation:none}.rm-count.pulse{animation:none}}
 
 .rm-caption{margin:10px 0 0;color:var(--rm-muted);font-size:.78rem;line-height:1.5}
+.rm-caption .src{display:block;margin-top:4px}
+.rm-caption .src a{color:var(--rm-muted)}
 
 /* the location table — the map's data of record (accessible representation) */
 .rm-table{margin-top:14px}
@@ -90,14 +99,13 @@
        In production this card is a <b>post-processing stage</b> on recall research:
        the report's place names are extracted into a location table, geocoded by
        real geocoders (Census · Nominatim), and pinned from those coordinates —
-       never from a generated illustration. This page demos the renderer with an
-       <b>illustrative dataset</b>.</p>
+       never from a generated illustration. These scenarios render <b>real,
+       cited public data</b>: a vehicle recall, a food recall, and a disease
+       outbreak snapshot.</p>
   </div>
 
   <div class="recall-map-embed" id="radar" role="region"
-       aria-label="Threat Radar — reported U.S. locations map"
-       data-title="FreshCrunch packaged salads — Cyclospora outbreak"
-       data-as-of="2026-09-21"></div>
+       aria-label="Threat Radar — reported U.S. locations map"></div>
 </main>
 
 <div id="sitefooter"></div>
@@ -107,74 +115,447 @@
 (() => {
 "use strict";
 
-/* --- illustrative location table (the real feature geocodes this from a live
-   report; here the coordinates are the known city coordinates themselves) ---- */
-const ROWS = [
-  {raw_text:"Salinas Valley processing fields", locality:"Salinas", admin1:"CA", county:"Monterey",
-   lat:36.6777, lon:-121.6555, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"manufacturing", n_cases:null, source_citation:"FDA inspection posting (illustrative)",
-   confidence:"high", notes:"leafy-green processing region; origin of the implicated lots", day:1},
-  {raw_text:"Yuma winter-growing shed", locality:"Yuma", admin1:"AZ", county:"Yuma",
-   lat:32.6927, lon:-114.6277, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"manufacturing", n_cases:null, source_citation:"distributor statement (illustrative)",
-   confidence:"medium", notes:"secondary processing site", day:1},
-  {raw_text:"Metro Atlanta distribution center", locality:"Atlanta", admin1:"GA", county:"Fulton",
-   lat:33.7490, lon:-84.3880, geocode_method:"nominatim", geocode_precision:"metro",
-   event_type:"distribution", n_cases:null, source_citation:"retail distribution list (illustrative)",
-   confidence:"medium", notes:"metro precision — ring on the principal city, no downtown pin claim", day:3},
-  {raw_text:"Detroit, MI", locality:"Detroit", admin1:"MI", county:"Wayne",
-   lat:42.3316, lon:-83.0466, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"confirmed_case", n_cases:6, source_citation:"state outbreak update (illustrative)",
-   confidence:"high", notes:"largest metro cluster", labelpos:"bottom right", day:4},
-  {raw_text:"Grand Rapids, MI", locality:"Grand Rapids", admin1:"MI", county:"Kent",
-   lat:42.9634, lon:-85.6681, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"confirmed_case", n_cases:1, source_citation:"state outbreak update (illustrative)",
-   confidence:"high", notes:"", labelpos:"middle left", day:5},
-  {raw_text:"Chicago, IL", locality:"Chicago", admin1:"IL", county:"Cook",
-   lat:41.8781, lon:-87.6298, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"confirmed_case", n_cases:3, source_citation:"state outbreak update (illustrative)",
-   confidence:"high", notes:"", labelpos:"bottom center", day:5},
-  {raw_text:"Milwaukee, WI", locality:"Milwaukee", admin1:"WI", county:"Milwaukee",
-   lat:43.0389, lon:-87.9065, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"confirmed_case", n_cases:3, source_citation:"state outbreak update (illustrative)",
-   confidence:"high", notes:"", labelpos:"top left", day:6},
-  {raw_text:"Minneapolis, MN", locality:"Minneapolis", admin1:"MN", county:"Hennepin",
-   lat:44.9778, lon:-93.2650, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"confirmed_case", n_cases:2, source_citation:"state outbreak update (illustrative)",
-   confidence:"high", notes:"", day:7},
-  {raw_text:"Des Moines, IA", locality:"Des Moines", admin1:"IA", county:"Polk",
-   lat:41.5868, lon:-93.6250, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"confirmed_case", n_cases:2, source_citation:"state outbreak update (illustrative)",
-   confidence:"high", notes:"", day:8},
-  {raw_text:"Omaha, NE", locality:"Omaha", admin1:"NE", county:"Douglas",
-   lat:41.2565, lon:-95.9345, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"confirmed_case", n_cases:4, source_citation:"state outbreak update (illustrative)",
-   confidence:"high", notes:"", labelpos:"bottom left", day:8},
-  {raw_text:"Kansas City, MO", locality:"Kansas City", admin1:"MO", county:"Jackson",
-   lat:39.0997, lon:-94.5786, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"confirmed_case", n_cases:2, source_citation:"state outbreak update (illustrative)",
-   confidence:"high", notes:"", labelpos:"bottom center", day:9},
-  {raw_text:"St. Louis, MO", locality:"St. Louis", admin1:"MO", county:"St. Louis City",
-   lat:38.6270, lon:-90.1994, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"confirmed_case", n_cases:1, source_citation:"state outbreak update (illustrative)",
-   confidence:"high", notes:"deduped into MO total; shown at city precision", day:10},
-  {raw_text:"Columbus, OH", locality:"Columbus", admin1:"OH", county:"Franklin",
-   lat:39.9612, lon:-82.9988, geocode_method:"nominatim", geocode_precision:"place",
-   event_type:"confirmed_case", n_cases:2, source_citation:"state outbreak update (illustrative)",
-   confidence:"high", notes:"", day:11},
-  {raw_text:"cases across Michigan", locality:null, admin1:"MI", county:null,
-   lat:43.6, lon:-84.6, geocode_method:"state_centroid", geocode_precision:"state",
-   event_type:"confirmed_case", n_cases:23, source_citation:"CDC investigation page (illustrative)",
-   confidence:"high", notes:"statewide total — state-level marker, never dressed up as a city",
-   labelpos:"top right", day:12},
-  {raw_text:"Springfield", locality:"Springfield", admin1:null, county:null,
-   lat:null, lon:null, geocode_method:"ambiguous", geocode_precision:"unknown",
-   event_type:"suspected_case", n_cases:2, source_citation:"social media summary (illustrative)",
-   confidence:"low", notes:"which Springfield? no state context — listed, not plotted", day:13},
-  {raw_text:"Ontario, Canada", locality:null, admin1:"ON", county:null,
-   lat:null, lon:null, geocode_method:null, geocode_precision:"non_us",
-   event_type:"confirmed_case", n_cases:3, source_citation:"PHAC notice (illustrative)",
-   confidence:"medium", notes:"non-U.S. site — kept in the table, never plotted", day:14},
+/* --- scenario registry — each entry drives every label, color, and the
+   location table below it. Rows follow the recall-check v2 location-table
+   schema; coordinates are geocoded city/state centroids (Census/Nominatim
+   conventions), counts and dates come from the cited sources. --------------- */
+const SCENARIOS = [
+  {
+    id: "vehicle", tab: "🚗 Vehicle recall",
+    title: "Ram 1500 rearview-camera recall — Stellantis (FCA US)",
+    sub: "239,131 U.S. vehicles · 2025–26 Ram 1500 (DT) · NHTSA filed Sep 1, 2026 · the whole recall chain sits in Metro Detroit",
+    chips: ["NHTSA 26V-560000", "FCA campaign 83D", "filed 9/1/26"],
+    unitWord: "vehicles", dayWord: "phase",
+    zoom: {lat: 42.62, lon: -83.28, scale: 6.5},
+    colors: {}, labels: {manufacturing:"supplier · plant · HQ"},
+    caption: "Suspect radio software may stop the rearview image displaying while backing " +
+      "(FMVSS 111 noncompliance; no driver warning; no crashes or injuries disclosed in the " +
+      "Part 573 report). Remedy: free software update — OTA or dealer, estimated Q3 2026, not " +
+      "yet available as of Sep 2; owner letters Sep 24 – Oct 2, 2026. Plant link: the Part 573 " +
+      "report does not name the assembly plant — the Ram 1500/Sterling Heights Assembly " +
+      "connection is from Stellantis' own release (single fetched source).",
+    sources: [
+      '<a href="https://static.nhtsa.gov/odi/rcl/2026/RCLRPT-26V560-9456.pdf">NHTSA Part 573 report</a> 9/1/26',
+      '<a href="https://static.nhtsa.gov/odi/rcl/2026/RCMN-26V560-5489.pdf">FCA dealer letter 83D</a> 9/2/26',
+      '<a href="https://blog.stellantisnorthamerica.com/2025/04/17/2-million-strong-and-counting-stellantis-sterling-heights-assembly-plant-celebrates-ram-1500-milestone/">Stellantis SHAP release</a> 4/17/25',
+      '<a href="https://www.usatoday.com/story/cars/recalls/2026/09/04/ram-1500-vehicles-recalled/91609746007/">USA Today</a> 9/4/26',
+    ],
+    rows: [
+      {raw_text:"Harman Becker Automotive Systems — radio supplier", locality:"Novi", admin1:"MI", county:"Oakland",
+       lat:42.4809, lon:-83.4561, geocode_method:"nominatim", geocode_precision:"address",
+       event_type:"manufacturing", n_cases:null, source_citation:"NHTSA Part 573 (26V-560)",
+       confidence:"high", notes:"30001 Cabot Dr — supplier of the suspect radio software",
+       labelpos:"bottom left", day:1},
+      {raw_text:"Sterling Heights Assembly Plant — where every affected truck is built",
+       locality:"Sterling Heights", admin1:"MI", county:"Macomb",
+       lat:42.8814, lon:-83.0302, geocode_method:"nominatim", geocode_precision:"place",
+       event_type:"manufacturing", n_cases:null, source_citation:"Stellantis release 4/17/25",
+       confidence:"medium", notes:"2025–26 Ram 1500 (DT) assembled here; plant not named in the Part 573 report",
+       labelpos:"top center", day:2},
+      {raw_text:"nationwide recall scope", locality:null, admin1:null, county:null,
+       lat:null, lon:null, geocode_method:null, geocode_precision:"national",
+       event_type:"other", n_cases:239131, source_citation:"NHTSA Part 573 (26V-560)",
+       confidence:"high", notes:"recall scope, not a location — 100% estimated with defect; no per-state counts published, so none are invented",
+       day:3},
+      {raw_text:"FCA US HQ — Part 573 filed with NHTSA", locality:"Auburn Hills", admin1:"MI", county:"Oakland",
+       lat:42.6836, lon:-83.2342, geocode_method:"nominatim", geocode_precision:"address",
+       event_type:"manufacturing", n_cases:null, source_citation:"NHTSA Part 573 (26V-560)",
+       confidence:"high", notes:"800 Chrysler Dr — filing Sep 1, 2026; remedy estimated Q3 2026; owner letters Sep 24 – Oct 2",
+       labelpos:"top right", day:4},
+    ],
+  },
+  {
+    id: "food", tab: "🥗 Food recall",
+    title: "Salmonella linked to shell eggs — Midwest Poultry Services recall",
+    sub: "134 illnesses · 18 states · 34 hospitalized · as of Sept 3, 2026 (CDC final update) · markers ordered by reported cases",
+    chips: ["FDA Class I", "H-1229/H-1230-2026", "outbreak over 9/3/26"],
+    unitWord: "cases", dayWord: "rank",
+    colors: {},
+    labels: {confirmed_case:"reported cases", manufacturing:"farms / firm"},
+    caption: "Salmonella Enteritidis linked to shell eggs from Midwest Poultry Services, L.P. " +
+      "(dba MPS Egg Farms) — ~19 million eggs recalled July 22, 2026; FDA Class I on Aug 12; " +
+      "CDC declared the outbreak over Sept 3, 2026. Per-state counts are CDC's final update " +
+      "as compiled by Marler Clark (CDC/FDA publish the totals and the state list only); the " +
+      "two Texas farm sites are single-sourced.",
+    sources: [
+      '<a href="https://www.cdc.gov/salmonella/outbreaks/shell-eggs-07-26/investigation.html">CDC investigation</a> 9/3/26',
+      '<a href="https://www.fda.gov/food/outbreaks-foodborne-illness/outbreak-investigation-salmonella-eggs-july-2026">FDA outbreak page</a> 9/3/26',
+      '<a href="https://www.fda.gov/safety/recalls-market-withdrawals-safety-alerts/midwest-poultry-services-lp-recalls-shell-eggs-due-possible-salmonella-enteritidis-contamination">FDA recall notice</a> 7/22/26',
+      '<a href="https://marlerclark.com/egg-salmonella-outbreak-sickens-98-in-17-states">Marler Clark per-state table</a>',
+    ],
+    rows: [
+      {raw_text:"Kurten, TX farm (former Feather Crest)", locality:"Kurten", admin1:"TX", county:"Brazos",
+       lat:30.8488, lon:-96.2633, geocode_method:"nominatim", geocode_precision:"place",
+       event_type:"manufacturing", n_cases:null, source_citation:"FDA 9/3/26; city via Marler Clark",
+       confidence:"medium", notes:"outbreak strain matched to environmental samples at the firm's Texas facility; farm city single-sourced",
+       labelpos:"top right", day:1},
+      {raw_text:"Center, TX farm (former Feather Crest)", locality:"Center", admin1:"TX", county:"Shelby",
+       lat:31.7938, lon:-94.1783, geocode_method:"nominatim", geocode_precision:"place",
+       event_type:"manufacturing", n_cases:null, source_citation:"FDA 9/3/26; city via Marler Clark",
+       confidence:"medium", notes:"second Texas production site; farm city single-sourced",
+       labelpos:"bottom right", day:1},
+      {raw_text:"Midwest Poultry Services HQ", locality:"North Manchester", admin1:"IN", county:"Wabash",
+       lat:41.0006, lon:-85.7689, geocode_method:"nominatim", geocode_precision:"place",
+       event_type:"manufacturing", n_cases:null, source_citation:"openFDA enforcement 8/19/26",
+       confidence:"high", notes:"recalling firm address (800 Wabash Rd)", labelpos:"top left", day:2},
+      {raw_text:"cases across Texas", locality:null, admin1:"TX", county:null,
+       lat:31.3, lon:-99.3, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:99, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"recalled eggs distributed and sold here (Kroger, Brookshire's banners)",
+       labelpos:"bottom left", day:3},
+      {raw_text:"cases across Louisiana", locality:null, admin1:"LA", county:null,
+       lat:31.0, lon:-92.0, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:8, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"recalled eggs distributed and sold here (Kroger)", labelpos:"bottom left", day:4},
+      {raw_text:"cases across Arkansas", locality:null, admin1:"AR", county:null,
+       lat:34.9, lon:-92.4, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:5, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"recalled eggs distributed here (Brookshire's banners)", labelpos:"top left", day:5},
+      {raw_text:"cases across Arizona", locality:null, admin1:"AZ", county:null,
+       lat:34.2, lon:-111.6, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:4, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"", day:6},
+      {raw_text:"cases across New Mexico", locality:null, admin1:"NM", county:null,
+       lat:34.4, lon:-106.1, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:3, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"recalled eggs distributed here", labelpos:"top left", day:7},
+      {raw_text:"cases across Georgia", locality:null, admin1:"GA", county:null,
+       lat:32.6, lon:-83.4, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:2, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"", labelpos:"bottom left", day:8},
+      {raw_text:"cases across Oklahoma", locality:null, admin1:"OK", county:null,
+       lat:35.6, lon:-97.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:2, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"recalled eggs distributed and sold here (Brookshire's banners)",
+       labelpos:"top center", day:8},
+      {raw_text:"cases across California", locality:null, admin1:"CA", county:null,
+       lat:37.2, lon:-119.3, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:1, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"", labelpos:"bottom left", day:9},
+      {raw_text:"cases across Colorado", locality:null, admin1:"CO", county:null,
+       lat:39.0, lon:-105.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:1, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"", labelpos:"top right", day:9},
+      {raw_text:"cases across Illinois", locality:null, admin1:"IL", county:null,
+       lat:40.0, lon:-89.2, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:1, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"", labelpos:"top left", day:9},
+      {raw_text:"cases across Michigan", locality:null, admin1:"MI", county:null,
+       lat:44.3, lon:-85.4, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:1, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"Michigan's one reported case — state of residence; no county-level detail published",
+       labelpos:"top right", day:9},
+      {raw_text:"cases across Missouri", locality:null, admin1:"MO", county:null,
+       lat:38.4, lon:-92.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:1, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"", labelpos:"bottom left", day:9},
+      {raw_text:"cases across Mississippi", locality:null, admin1:"MS", county:null,
+       lat:32.7, lon:-89.7, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:1, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"recalled eggs distributed here", labelpos:"top right", day:9},
+      {raw_text:"cases across North Carolina", locality:null, admin1:"NC", county:null,
+       lat:35.5, lon:-79.4, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:1, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"", labelpos:"top left", day:9},
+      {raw_text:"cases across Nevada", locality:null, admin1:"NV", county:null,
+       lat:39.3, lon:-116.6, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:1, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"", labelpos:"top right", day:9},
+      {raw_text:"cases across New York", locality:null, admin1:"NY", county:null,
+       lat:42.9, lon:-75.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:1, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"", labelpos:"top left", day:9},
+      {raw_text:"cases across South Carolina", locality:null, admin1:"SC", county:null,
+       lat:33.9, lon:-80.9, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:1, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"", labelpos:"bottom center", day:9},
+      {raw_text:"cases across West Virginia", locality:null, admin1:"WV", county:null,
+       lat:38.6, lon:-80.6, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"confirmed_case", n_cases:1, source_citation:"CDC final via Marler Clark 9/3/26",
+       confidence:"high", notes:"", labelpos:"top left", day:9},
+    ],
+  },
+  {
+    id: "outbreak", tab: "🦠 Outbreak",
+    title: "COVID-19 late-summer wave — variant SW.2, tracked in wastewater (CDC NWSS)",
+    sub: "49 jurisdictions with data · national level 2.85 (Low) and climbing · SW.2 leads at 20.7% of estimated infections · week ending Sep 12, 2026 — tiers unfold hottest first",
+    chips: ["CDC NWSS wastewater", "SW.2 → 20.7%", "flu: all Minimal — rejected", "wk ending 9/12/26"],
+    unitWord: "activity level", dayWord: "tier",
+    colors: {very_high:"#c0392b", high:"#e67e22", moderate:"#d4ac0d",
+             low:"#2874a6", very_low:"#5d6d7e"},
+    labels: {very_high:"very high", high:"high", moderate:"moderate",
+             low:"low", very_low:"very low"},
+    caption: "Each diamond is a state's COVID-19 wastewater viral activity level (WVAL) for " +
+      "the week ending Sep 12, 2026 — CDC's measure of virus in sewage, not case counts; " +
+      "tiers are CDC's own cut points. Variant picture: SW.2 (an Omicron descendant) leads " +
+      "at 20.7% of estimated infections for the 4-week period ending Aug 1, 2026 — CDC's " +
+      "newest published estimate, which lags ~7 weeks; it is concentrated in the Pacific " +
+      "Northwest (40%) and South-Central (25%) regions. Flu was rejected for this scenario: " +
+      "every FluView jurisdiction reports Minimal ILI — an honest flat map, so a different " +
+      "respiratory signal is shown instead. Michigan: statewide 1.41 Very Low across 28 " +
+      "sites with Rt 1.05 (Likely Growing) — but the site serving Washtenaw County (incl. " +
+      "Ann Arbor) reads 6.86 Moderate, and the Tri-County sites (Macomb+Oakland, Macomb+" +
+      "Wayne, Oakland+Wayne) read 3.48–4.15 Low, declining week-over-week. County-site rows " +
+      "are listed, not plotted — the state feed publishes served counties, not site points.",
+    sources: [
+      '<a href="https://www.cdc.gov/wastewater/respiratory-viruses/state.html">CDC NWSS state wastewater levels</a> 9/12/26',
+      '<a href="https://www.cdc.gov/respiratory-viruses/data/activity-levels.html">CDC respiratory activity levels</a> 9/18/26',
+      '<a href="https://data.cdc.gov/Laboratory-Surveillance/SARS-CoV-2-Variant-Proportions/jr58-6ysp">CDC variant proportions</a> (period ending 8/1/26)',
+      '<a href="https://www.michigan.gov/flu/surveillance">MDHHS Michigan Flu Focus</a> 9/11/26',
+    ],
+    rows: [
+      /* tier 1 — very high */
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"TX", county:null,
+       lat:31.3, lon:-99.3, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_high", n_cases:16.42, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 14.87 — still the nation's hottest; ED visits the only Moderate in the U.S., Rt 0.88 (Declining) — peak may be passing",
+       labelpos:"bottom left", day:1},
+      {raw_text:"territory-wide wastewater activity", locality:null, admin1:"VI", county:null,
+       lat:null, lon:null, geocode_method:null, geocode_precision:"territory",
+       event_type:"very_high", n_cases:13.81, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 17.16 — second-highest level reported, easing",
+       day:1},
+      /* tier 2 — high */
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"CA", county:null,
+       lat:37.2, lon:-119.3, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"high", n_cases:8.98, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 8.83 — SW.2 at ~23% in HHS Region 9",
+       labelpos:"top left", day:2},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"FL", county:null,
+       lat:28.6, lon:-82.4, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"high", n_cases:8.79, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 5.38 — largest climb among the High tier",
+       labelpos:"bottom right", day:2},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"WA", county:null,
+       lat:47.4, lon:-120.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"high", n_cases:8.42, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 7.04 — SW.2's U.S. stronghold (~40% in HHS Region 10); Rt 1.12, the fastest sustained growth",
+       labelpos:"bottom right", day:2},
+      /* tier 3 — moderate */
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"HI", county:null,
+       lat:20.8, lon:-156.3, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"moderate", n_cases:7.35, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 9.41 — easing from High; Rt 1.08", nolabel:1, day:3},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"MS", county:null,
+       lat:32.7, lon:-89.7, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"moderate", n_cases:6.77, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 12.96 — only 2 sites, so week-to-week swings are noise-prone", nolabel:1, day:3},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"NV", county:null,
+       lat:39.3, lon:-116.6, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"moderate", n_cases:6.06, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 12.98 — halved; low site counts make this noisy", nolabel:1, day:3},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"NC", county:null,
+       lat:35.5, lon:-79.4, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"moderate", n_cases:5.77, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 5.32", nolabel:1, day:3},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"SC", county:null,
+       lat:33.9, lon:-80.9, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"moderate", n_cases:5.77, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 7.61 — easing", nolabel:1, day:3},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"AL", county:null,
+       lat:32.8, lon:-86.8, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"moderate", n_cases:5.08, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 6.63 — one of 3 states with Low acute-respiratory-illness activity", nolabel:1, day:3},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"KY", county:null,
+       lat:37.5, lon:-85.3, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"moderate", n_cases:5.00, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 4.39 — still climbing", nolabel:1, day:3},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"MA", county:null,
+       lat:42.3, lon:-71.8, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"moderate", n_cases:4.99, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 1.67 — tripled week-over-week, the sharpest rise in the tier", nolabel:1, day:3},
+      /* tier 4 — low */
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"NM", county:null,
+       lat:34.4, lon:-106.1, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:4.83, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 5.88", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"DE", county:null,
+       lat:39.0, lon:-75.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:4.78, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 3.09", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"OR", county:null,
+       lat:43.9, lon:-120.6, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:4.68, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 1.48 — more than tripled, echoing Washington next door", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"UT", county:null,
+       lat:39.3, lon:-111.7, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:4.64, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 2.28", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"AR", county:null,
+       lat:34.9, lon:-92.4, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:4.14, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 2.74 — SW.2 at ~25% in HHS Region 6", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"AK", county:null,
+       lat:64.1, lon:-152.3, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:3.67, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 5.90", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"ID", county:null,
+       lat:44.4, lon:-114.6, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:3.48, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 2.69", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"TN", county:null,
+       lat:35.8, lon:-86.4, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:3.27, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 4.50 — only 2 sites", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"MD", county:null,
+       lat:39.0, lon:-76.8, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:3.04, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 1.34", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"DC", county:null,
+       lat:38.9, lon:-77.0, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:3.01, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 3.30", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"CT", county:null,
+       lat:41.6, lon:-72.7, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:2.97, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 3.30", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"GA", county:null,
+       lat:32.6, lon:-83.4, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:2.85, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 8.12 — down sharply from Moderate territory", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"VA", county:null,
+       lat:37.5, lon:-78.9, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:2.79, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 3.93", nolabel:1, day:4},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"CO", county:null,
+       lat:39.0, lon:-105.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"low", n_cases:2.69, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 2.00", nolabel:1, day:4},
+      /* tier 5 — very low */
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"NH", county:null,
+       lat:43.7, lon:-71.6, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:2.34, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"NJ", county:null,
+       lat:40.2, lon:-74.7, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:2.31, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"SW.2 thin in Region 2 (~7%)", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"IN", county:null,
+       lat:39.9, lon:-86.3, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:2.26, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"LA", county:null,
+       lat:31.0, lon:-92.0, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:2.25, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"only 2 sites", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"RI", county:null,
+       lat:41.7, lon:-71.6, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:2.21, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"MO", county:null,
+       lat:38.4, lon:-92.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:2.19, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"ME", county:null,
+       lat:45.4, lon:-69.2, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:2.18, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"SD", county:null,
+       lat:44.4, lon:-100.2, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:2.17, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"KS", county:null,
+       lat:38.5, lon:-98.4, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:2.05, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"IA", county:null,
+       lat:42.0, lon:-93.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:1.99, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"PA", county:null,
+       lat:40.9, lon:-77.8, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:1.95, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"WY", county:null,
+       lat:43.0, lon:-107.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:1.93, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"IL", county:null,
+       lat:40.0, lon:-89.2, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:1.65, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity — Michigan", locality:null, admin1:"MI", county:null,
+       lat:44.3, lon:-85.4, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:1.41, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"prior week 1.62 · 28 sites (~4.2M covered) · Rt 1.05 'Likely Growing' — statewide calm, but see the Washtenaw + Tri-County site rows below",
+       labelpos:"top right", day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"WI", county:null,
+       lat:44.6, lon:-90.0, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:1.14, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"OK", county:null,
+       lat:35.6, lon:-97.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:1.10, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"MN", county:null,
+       lat:46.3, lon:-94.3, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:1.00, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"NY", county:null,
+       lat:42.9, lon:-75.5, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:1.00, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"Rt 1.02 (Growing) despite a Very Low level", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"OH", county:null,
+       lat:40.4, lon:-82.8, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:1.00, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"one of 3 states with Low acute-respiratory-illness activity", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"VT", county:null,
+       lat:44.1, lon:-72.7, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:1.00, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"NE", county:null,
+       lat:41.5, lon:-99.8, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:0.88, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", nolabel:1, day:5},
+      {raw_text:"statewide wastewater activity", locality:null, admin1:"WV", county:null,
+       lat:38.6, lon:-80.6, geocode_method:"state_centroid", geocode_precision:"state",
+       event_type:"very_low", n_cases:0.30, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"nation's lowest reported level — single site", nolabel:1, day:5},
+      /* tier 6 — Michigan site detail (listed, not plotted: served counties only, no site points) */
+      {raw_text:"NWSS site serving Washtenaw County (incl. Ann Arbor) — pop 150,000",
+       locality:null, admin1:null, county:"Washtenaw",
+       lat:null, lon:null, geocode_method:null, geocode_precision:"county_site",
+       event_type:"moderate", n_cases:6.86, source_citation:"CDC NWSS site data (atcp-73re), wk ending 9/12/26",
+       confidence:"high", notes:"Michigan's hottest site — prior week 10.54 (High), easing", day:6},
+      {raw_text:"NWSS site serving Macomb + Oakland counties — pop 1,482,000",
+       locality:null, admin1:null, county:"Macomb / Oakland",
+       lat:null, lon:null, geocode_method:null, geocode_precision:"county_site",
+       event_type:"low", n_cases:4.15, source_citation:"CDC NWSS site data (atcp-73re), wk ending 9/12/26",
+       confidence:"high", notes:"prior week 4.99 (Moderate)", day:6},
+      {raw_text:"NWSS site serving Macomb + Wayne counties — pop 492,000",
+       locality:null, admin1:null, county:"Macomb / Wayne",
+       lat:null, lon:null, geocode_method:null, geocode_precision:"county_site",
+       event_type:"low", n_cases:3.85, source_citation:"CDC NWSS site data (atcp-73re), wk ending 9/12/26",
+       confidence:"high", notes:"prior week 6.16 (Moderate) — halved", day:6},
+      {raw_text:"NWSS site serving Oakland + Wayne counties — pop 840,600",
+       locality:null, admin1:null, county:"Oakland / Wayne",
+       lat:null, lon:null, geocode_method:null, geocode_precision:"county_site",
+       event_type:"low", n_cases:3.48, source_citation:"CDC NWSS site data (atcp-73re), wk ending 9/12/26",
+       confidence:"high", notes:"prior week 3.44 — flat", day:6},
+      {raw_text:"Oakland County single site — pop 13,900",
+       locality:null, admin1:null, county:"Oakland",
+       lat:null, lon:null, geocode_method:null, geocode_precision:"county_site",
+       event_type:"very_low", n_cases:1.44, source_citation:"CDC NWSS site data (atcp-73re), wk ending 9/12/26",
+       confidence:"high", notes:"single small sewershed", day:6},
+      /* tier 7 — no data this week */
+      {raw_text:"no NWSS data reported this week", locality:null, admin1:"AZ", county:null,
+       lat:null, lon:null, geocode_method:null, geocode_precision:"no_data",
+       event_type:"other", n_cases:null, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"had 14 sites reporting the prior month — a one-week gap, not zero activity", day:7},
+      {raw_text:"no NWSS data reported this week", locality:null, admin1:"GU", county:null,
+       lat:null, lon:null, geocode_method:null, geocode_precision:"no_data",
+       event_type:"other", n_cases:null, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"territory — limited participation", day:7},
+      {raw_text:"no NWSS data reported this week", locality:null, admin1:"MT", county:null,
+       lat:null, lon:null, geocode_method:null, geocode_precision:"no_data",
+       event_type:"other", n_cases:null, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", day:7},
+      {raw_text:"no NWSS data reported this week", locality:null, admin1:"ND", county:null,
+       lat:null, lon:null, geocode_method:null, geocode_precision:"no_data",
+       event_type:"other", n_cases:null, source_citation:"CDC NWSS state map, wk ending 9/12/26",
+       confidence:"high", notes:"", day:7},
+    ],
+  },
 ];
 
 const EVENT_COLORS = {
@@ -186,24 +567,21 @@ const EVENT_LABELS = {
   confirmed_case:"confirmed cases", suspected_case:"suspected cases",
   distribution:"distribution", manufacturing:"origin / processing", other:"other",
 };
-const CAPTION = "Markers are plotted from geocoded coordinates in the location table, not from a generated illustration.";
+const CAPTION_BASE = "Markers are plotted from geocoded coordinates in the location table, not from a generated illustration.";
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const coarse = matchMedia("(pointer: coarse)").matches;
 
 const root = $("radar");
-const TITLE = root.dataset.title, AS_OF = root.dataset.asOf;
 
 /* --- static DOM ---------------------------------------------------------- */
 root.innerHTML = `
+  <div class="rm-tabs" id="rmTabs" role="tablist" aria-label="Scenario"></div>
   <div class="rm-head">
     <div>
-      <h2 class="rm-title">${esc(TITLE)}</h2>
-      <p class="rm-sub">reported U.S. locations · as of ${esc(AS_OF)} · marker size ∝ reported case count</p>
+      <h2 class="rm-title" id="rmTitle"></h2>
+      <p class="rm-sub" id="rmSub"></p>
     </div>
-    <div class="rm-chips">
-      <span class="rm-chip geo">geo · post-processor</span>
-      <span class="rm-chip demo">illustrative demo data</span>
-    </div>
+    <div class="rm-chips" id="rmChips"></div>
   </div>
   <div class="rm-plot" id="rmPlot"></div>
   <div class="rm-controls">
@@ -212,37 +590,17 @@ root.innerHTML = `
     <span class="rm-count" id="rmCount"></span>
   </div>
   <div class="rm-timeline" id="rmTimeline" aria-live="polite"></div>
-  <p class="rm-caption">${esc(CAPTION)} <b>MI*</b> is a statewide total, plotted at
-    the state level (diamond) — never dressed up as a city. Dataset: simulated
-    outbreak for renderer demonstration — the production stage geocodes real
-    recall-report locations through the same table schema.</p>
-  <details class="rm-table" id="rmTable"><summary>Location table — ${ROWS.length} rows (the map's data of record)</summary>
+  <p class="rm-caption" id="rmCaption"></p>
+  <details class="rm-table" id="rmTable"><summary id="rmTableSum"></summary>
     <div style="overflow-x:auto"><table>
       <thead><tr><th>raw text</th><th>place</th><th>state</th><th>precision</th>
-        <th>event</th><th>cases</th><th>geocode</th><th>conf.</th><th>notes</th></tr></thead>
-      <tbody></tbody>
+        <th>event</th><th>count</th><th>geocode</th><th>conf.</th><th>source</th><th>notes</th></tr></thead>
+      <tbody id="rmTableBody"></tbody>
     </table></div>
   </details>`;
 
 const plotEl = $("rmPlot"), countEl = $("rmCount"), timelineEl = $("rmTimeline");
-
-/* table rows — flagged and non-U.S. rows highlighted amber */
-const tbody = root.querySelector(".rm-table tbody");
-for (const r of ROWS) {
-  const tr = document.createElement("tr");
-  if (r.lat == null) tr.className = "flag";
-  tr.innerHTML =
-    `<td>${esc(r.raw_text)}</td>` +
-    `<td>${esc(r.locality || "—")}</td>` +
-    `<td class="mono">${esc(r.admin1 || "—")}</td>` +
-    `<td class="mono">${esc(r.geocode_precision)}</td>` +
-    `<td>${esc(EVENT_LABELS[r.event_type] || r.event_type)}</td>` +
-    `<td class="mono">${r.n_cases == null ? "—" : r.n_cases}</td>` +
-    `<td class="mono">${esc(r.geocode_method || "—")}</td>` +
-    `<td>${esc(r.confidence)}</td>` +
-    `<td>${esc(r.notes)}</td>`;
-  tbody.appendChild(tr);
-}
+const tabsEl = $("rmTabs");
 
 /* --- UDL-aware plot colors: read the live tokens, blend in JS (hex is what
    udl.css puts on :root — concrete values, no color-mix needed) ------------ */
@@ -263,9 +621,9 @@ function themeColors() {
   };
 }
 
-/* --- the unfold: markers land in outbreak-day order ------------------------
-   Labels default OFF on narrow cards (<700px) — the clustered Midwest cities
-   are unreadable at phone widths; the toggle brings them back. */
+/* --- the unfold: markers land in scenario order ----------------------------
+   Labels default OFF on narrow cards (<700px) — clustered cities are
+   unreadable at phone widths; the toggle brings them back. */
 let revealed = 0, timer = null;
 const showLabelsWide = root.clientWidth >= 700;
 let showLabels = showLabelsWide;
@@ -273,40 +631,56 @@ const labelsBtn = $("rmLabels");
 labelsBtn.textContent = "Labels: " + (showLabels ? "on" : "off");
 labelsBtn.setAttribute("aria-pressed", String(showLabels));
 
+let cur = 0;   // active scenario index
+const S = () => SCENARIOS[cur];
+const colorOf = et => (S().colors[et] || EVENT_COLORS[et] || EVENT_COLORS.other);
+const labelOf = et => (S().labels[et] || EVENT_LABELS[et] || et);
+
 const plottable = r => r.lat != null && r.lon != null && r.geocode_precision !== "non_us";
-const label = r => (r.locality ? r.locality : r.admin1) +
+const label = r => r.nolabel ? "" : (r.locality ? r.locality : r.admin1) +
   (r.geocode_precision === "state" ? "*" : "");
 const sizeOf = r => r.n_cases == null ? (coarse ? 13 : 10)
   : Math.max(coarse ? 11 : 8, Math.min(30, 6 + Math.sqrt(r.n_cases) * 4));
+const fmt = n => n == null ? null : Number(n).toLocaleString("en-US");
 
 function render() {
   if (typeof Plotly === "undefined") { cdnError(); return; }
-  const shown = ROWS.slice(0, revealed).filter(plottable);
+  const shown = S().rows.slice(0, revealed).filter(plottable);
   const traces = [];
   for (const et of [...new Set(shown.map(r => r.event_type))]) {
     const rs = shown.filter(r => r.event_type === et);
     traces.push({
       type: "scattergeo", mode: showLabels ? "markers+text" : "markers",
-      name: EVENT_LABELS[et] || et, textfont: {size: 9},
+      name: labelOf(et), textfont: {size: 9},
       textposition: rs.map(r => r.labelpos || "top center"),
       lat: rs.map(r => r.lat), lon: rs.map(r => r.lon),
       text: rs.map(label), hoverinfo: "text",
       hovertext: rs.map(r => [
         r.raw_text,
-        r.n_cases == null ? "count not stated" : r.n_cases + " reported case(s)",
-        EVENT_LABELS[r.event_type] || r.event_type,
+        r.n_cases == null ? "count not stated" : fmt(r.n_cases) + " " + S().unitWord,
+        labelOf(r.event_type),
         r.geocode_precision + " precision" + (r.county ? " · " + r.county + " County" : ""),
       ].join("<br>")),
       marker: {
         size: rs.map(sizeOf),
         symbol: rs.map(r => r.geocode_precision === "state" ? "diamond" : "circle"),
-        color: EVENT_COLORS[et] || EVENT_COLORS.other,
+        color: colorOf(et),
         line: {color: "#ffffff", width: 1},
         opacity: 0.92,
       },
     });
   }
   const c = themeColors();
+  const geo = {
+    scope: "usa", projection: {type: "albers usa"},
+    showland: true, landcolor: c.land,
+    subunitcolor: c.subunit, countrycolor: c.subunit,
+    showlakes: true, lakecolor: c.lake,
+  };
+  if (S().zoom) {   // scenario-scoped view (e.g. the Metro Detroit recall chain)
+    geo.projection.scale = S().zoom.scale;
+    geo.center = {lat: S().zoom.lat, lon: S().zoom.lon};
+  }
   Plotly.react(plotEl, traces, {
     font: {color: c.text, size: 12},
     paper_bgcolor: "transparent", plot_bgcolor: "transparent",
@@ -314,52 +688,59 @@ function render() {
     legend: {orientation: "h", font: {size: 11}, y: -0.02},
     hoverlabel: {bgcolor: cssVar("--card"), bordercolor: cssVar("--line"),
                  font: {color: c.text}},
-    geo: {
-      scope: "usa", projection: {type: "albers usa"},
-      showland: true, landcolor: c.land,
-      subunitcolor: c.subunit, countrycolor: c.subunit,
-      showlakes: true, lakecolor: c.lake,
-    },
+    geo,
   }, {responsive: true, displayModeBar: false});
 
-  const plotted = shown.length, listed = ROWS.length - ROWS.filter(plottable).length;
+  const plotted = shown.length,
+        listed = S().rows.length - S().rows.filter(plottable).length;
   countEl.textContent = revealed === 0 ? "" :
     plotted + " plotted location" + (plotted === 1 ? "" : "s") +
-    (revealed >= ROWS.length && listed ? " · " + listed + " listed without coordinates" : "");
+    (revealed >= S().rows.length && listed ? " · " + listed + " listed without coordinates" : "");
   countEl.classList.remove("pulse"); void countEl.offsetWidth; countEl.classList.add("pulse");
 }
+
+/* rows without coordinates get a precise reason, never a silent drop */
+const KIND_WHEN_UNPLOTTED = {
+  non_us: "non-U.S. — listed, not plotted",
+  national: "scope, not a location — listed for the record",
+  territory: "U.S. territory — outside this map's projection",
+  no_data: "no data reported this week — listed for the record",
+  county_site: "county-level site — no single published point, listed not plotted",
+};
 
 function ticker(r) {
   const ev = document.createElement("div");
   ev.className = "rm-ev" + (r.lat == null ? " flag" : "");
   const what = r.n_cases != null
-    ? `<b>${r.n_cases} case${r.n_cases === 1 ? "" : "s"}</b> · ` : "";
+    ? `<b>${fmt(r.n_cases)} ${S().unitWord}</b> · ` : "";
   const where = r.locality ? `${esc(r.locality)}, ${esc(r.admin1)}`
     : r.admin1 ? `statewide ${esc(r.admin1)}` : esc(r.raw_text);
   const kind = r.lat == null
-    ? (r.geocode_precision === "non_us" ? "non-U.S. — listed, not plotted"
-                                       : "ambiguous — listed, not plotted")
-    : (EVENT_LABELS[r.event_type] || r.event_type);
-  ev.innerHTML = `<span class="d">Day ${r.day}</span>` +
-    `<span class="dot" style="background:${EVENT_COLORS[r.event_type] || EVENT_COLORS.other}"></span>` +
+    ? (KIND_WHEN_UNPLOTTED[r.geocode_precision] || "ambiguous — listed, not plotted")
+    : labelOf(r.event_type);
+  ev.innerHTML = `<span class="d">${esc(S().dayWord)} ${r.day}</span>` +
+    `<span class="dot" style="background:${colorOf(r.event_type)}"></span>` +
     `<span>${what}${where} — ${esc(kind)}</span>`;
   timelineEl.appendChild(ev);
   timelineEl.scrollTop = timelineEl.scrollHeight;
 }
 
 function step() {
-  if (revealed >= ROWS.length) { stop(); return; }
-  ticker(ROWS[revealed]);
-  revealed++;
+  const rows = S().rows;
+  if (revealed >= rows.length) { stop(); return; }
+  const day = rows[revealed].day;   // reveal one whole day/tier/rank per beat
+  while (revealed < rows.length && rows[revealed].day === day) {
+    ticker(rows[revealed]); revealed++;
+  }
   render();
-  if (revealed >= ROWS.length) { stop(); return; }
+  if (revealed >= rows.length) { stop(); return; }
   timer = setTimeout(step, reduced ? 0 : 420);
 }
 function stop() { if (timer) { clearTimeout(timer); timer = null; } }
 
 function play() {
   stop(); revealed = 0; timelineEl.innerHTML = ""; render();
-  if (reduced) { while (revealed < ROWS.length) { ticker(ROWS[revealed]); revealed++; } render(); }
+  if (reduced) { while (revealed < S().rows.length) { ticker(S().rows[revealed]); revealed++; } render(); }
   else timer = setTimeout(step, 350);
 }
 
@@ -373,8 +754,70 @@ function cdnError() {
   root.querySelector(".rm-controls").before(p);
 }
 
+/* --- scenario plumbing: tabs, header/table/caption swap, deep-link --------- */
+function buildTabs() {
+  tabsEl.innerHTML = "";
+  SCENARIOS.forEach((sc, i) => {
+    const b = document.createElement("button");
+    b.className = "rm-tab"; b.type = "button";
+    b.textContent = sc.tab;
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", String(i === cur));
+    b.addEventListener("click", () => setScenario(i));
+    tabsEl.appendChild(b);
+  });
+}
+
+function fillScenario() {
+  const sc = S();
+  $("rmTitle").textContent = sc.title;
+  $("rmSub").textContent = sc.sub;
+  $("rmChips").innerHTML =
+    `<span class="rm-chip geo">geo · post-processor</span>` +
+    `<span class="rm-chip demo">real data · cited</span>` +
+    sc.chips.map(c => `<span class="rm-chip">${esc(c)}</span>`).join("");
+  $("rmCaption").innerHTML = `<b>MI*</b>-style diamonds are statewide values, plotted ` +
+    `at the state level — never dressed up as a city. ${esc(sc.caption)}` +
+    (sc.sources.length ? `<span class="src">Sources: ${sc.sources.join(" · ")}</span>` : "");
+  const body = $("rmTableBody");
+  body.innerHTML = "";
+  for (const r of sc.rows) {
+    const tr = document.createElement("tr");
+    if (r.lat == null) tr.className = "flag";
+    tr.innerHTML =
+      `<td>${esc(r.raw_text)}</td>` +
+      `<td>${esc(r.locality || "—")}</td>` +
+      `<td class="mono">${esc(r.admin1 || "—")}</td>` +
+      `<td class="mono">${esc(r.geocode_precision)}</td>` +
+      `<td>${esc(labelOf(r.event_type))}</td>` +
+      `<td class="mono">${r.n_cases == null ? "—" : fmt(r.n_cases)}</td>` +
+      `<td class="mono">${esc(r.geocode_method || "—")}</td>` +
+      `<td>${esc(r.confidence)}</td>` +
+      `<td>${esc(r.source_citation || "—")}</td>` +
+      `<td>${esc(r.notes)}</td>`;
+    body.appendChild(tr);
+  }
+  $("rmTableSum").textContent =
+    `Location table — ${sc.rows.length} rows (the map's data of record)`;
+}
+
+function setScenario(i) {
+  if (i === cur && revealed > 0) return;
+  cur = i;
+  [...tabsEl.children].forEach((b, j) =>
+    b.setAttribute("aria-selected", String(j === cur)));
+  fillScenario();
+  play();
+  try { history.replaceState(null, "", "/map?s=" + S().id); } catch { /* ignore */ }
+}
+
+const qs = new URLSearchParams(location.search).get("s");
+const start = Math.max(0, SCENARIOS.findIndex(sc => sc.id === qs));
+buildTabs();
+setScenario(start === -1 ? 0 : start);
+
 $("rmReplay").addEventListener("click", play);
-$("rmLabels").addEventListener("click", e => {
+labelsBtn.addEventListener("click", e => {
   showLabels = !showLabels;
   e.target.textContent = "Labels: " + (showLabels ? "on" : "off");
   e.target.setAttribute("aria-pressed", String(showLabels));
@@ -383,7 +826,6 @@ $("rmLabels").addEventListener("click", e => {
 
 if (typeof Plotly === "undefined")
   window.addEventListener("error", cdnError, {once: true});
-play();
 })();
 </script>
 </body>
