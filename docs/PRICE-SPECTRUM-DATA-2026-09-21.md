@@ -76,7 +76,7 @@ hide here" — bait flags are heuristics, not fraud findings.
 
 ---
 
-## Scenario B — "olive green bodycon dress in XL" (SIMULATED)
+## Scenario B — "Green Bodycon Dress Medium" (SIMULATED)
 
 **Everything on this scenario is fabricated for illustration.** No
 Amazon query was run; no real sellers, brands, or listings exist. The
@@ -92,7 +92,7 @@ recognizable without one.
 
 **Design of the simulation — anchored, not invented from nothing:**
 
-- The slop taxonomy mirrors the real eBay exclusion reasons: no-XL-in-
+- The slop taxonomy mirrors the real eBay exclusion reasons: no-M-in-
   stock ≈ ambiguous_variant, wrong-green ≈ product_mismatch,
   not-bodycon ≈ product_mismatch, accessories ≈ accessory_only, juniors'
   size runs ≈ product_mismatch, stock-photo resellers + bait pricing ≈
@@ -112,10 +112,19 @@ recognizable without one.
   ships free) sits just under the street band — the same verified-deal-
   under-fence pattern the real GPU capture found 5 of.
 
-**The pain point it demonstrates:** every result that isn't actually an
-olive-green bodycon dress with XL in stock is filtered with a
+**The pain point it demonstrates:** every result that isn't actually a
+green bodycon dress with M in stock is filtered with a
 machine-readable reason *before* it can waste a click — 374 product
 pages the shopper never opens.
+
+**Product thumbnails (2026-09-21 update, commit b99df2a):** the dress
+listing cards carry illustrative product photos — 13 webp images
+(`app/static/price-img/d01–d13.webp`, ~280px wide, generated with
+ffmpeg from the user's source photos), each card cropped to a uniform
+3:4 via CSS `object-fit:cover`, pool Fisher–Yates shuffled per render
+so the (fictional) listings get a fresh pairing on every visit. The
+photos are illustrative of the category, not the listings — the caption
+says so. GPU cards have no photos (real eBay capture, no image rights).
 
 ---
 
