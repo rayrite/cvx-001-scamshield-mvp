@@ -166,6 +166,8 @@ def cmd_verify(base: str) -> int:
         ("/apps", "App Library", "apps menu"),
         ("/video", "Video samples", "sample video players"),
         ("/models", "AI Models", "model switcher"),
+        ("/map", "Threat Radar", "threat scenarios"),
+        ("/price", "Price Spectrum", "is that price real"),
         ("/theme", "Universal Design Language", "theme editor"),
     ]
     for path, marker, label in PAGES:

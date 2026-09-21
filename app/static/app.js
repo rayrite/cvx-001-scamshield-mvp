@@ -74,6 +74,7 @@ const NAV = [
   ["/apps",    "Apps",    "apps"],
   ["/video",   "Video",   "video"],
   ["/map",     "Map",     null],
+  ["/price",   "Price",   null],
   ["/models",  "Models",  null],
   ["/theme",   "Theme",   null],
 ];
