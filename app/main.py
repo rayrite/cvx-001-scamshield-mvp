@@ -534,10 +534,12 @@ async def report(jid: str, x_auth_token: str | None = Header(default=None)):
 
 _PAGES = {"check": "check.html", "chat": "chat.html", "quick": "quick.html",
           "learn": "learn.html", "apps": "apps.html", "theme": "theme.html",
-          "models": "models.html", "video": "video.html", "map": "map.html"}
+          "models": "models.html", "video": "video.html", "map": "map.html",
+          "price": "price.html"}
 _PAGE_FLAGS = {"check": "check", "chat": "chat", "quick": "quick",
                "learn": "learning", "apps": "apps", "theme": None,
-               "models": None, "video": "video", "map": None}
+               "models": None, "video": "video", "map": None,
+               "price": None}
 
 
 def _page(name: str):

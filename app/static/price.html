@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Price Spectrum — is that price real?</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%92%B2%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/udl.css">
+<link rel="stylesheet" href="/app.css">
+<script src="/udl.js"></script>
+<style>
+/* price-embed — scoped component styles, UDL-bridged (same pattern as
+   recall-map-embed on /map). Everything lives under .price-embed; the
+   app's /theme page restyles this card like any other. */
+.price-embed{
+  --pp-surface:var(--card);
+  --pp-text:var(--ink);
+  --pp-muted:var(--muted);
+  --pp-border:var(--line);
+  --pp-accent:var(--accent);
+  --pp-good:var(--good);
+  --pp-warn:var(--warn);
+  --pp-bad:var(--bad);
+  --pp-radius:12px;
+  box-sizing:border-box;display:block;width:100%;
+  padding:16px;background:var(--pp-surface);color:var(--pp-text);
+  border:1px solid var(--pp-border);border-radius:var(--pp-radius);
+}
+.price-embed *{box-sizing:border-box}
+.pp-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.pp-tab{appearance:none;font:inherit;font-size:.8rem;color:var(--pp-muted);
+  background:transparent;border:1px solid var(--pp-border);border-radius:999px;
+  padding:6px 14px;cursor:pointer;min-height:34px}
+.pp-tab:hover{border-color:var(--pp-accent);color:var(--pp-text)}
+.pp-tab[aria-selected="true"]{border-color:var(--pp-accent);color:var(--pp-accent);
+  background:color-mix(in srgb,var(--pp-accent) 10%,transparent);font-weight:700}
+.pp-head{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;
+  justify-content:space-between;margin-bottom:10px}
+.pp-title{margin:0;font-size:1.02rem;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+.pp-sub{margin:0;color:var(--pp-muted);font-size:.82rem}
+.pp-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.pp-chip{border:1px solid var(--pp-border);border-radius:999px;padding:2px 10px;
+  font-size:.7rem;letter-spacing:.03em;color:var(--pp-muted)}
+.pp-chip.real{border-color:var(--pp-good);color:var(--pp-good)}
+.pp-chip.demo{border-color:var(--pp-warn);color:var(--pp-warn)}
+
+/* verdict bar — the answer before the chart */
+.pp-verdict{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;
+  border:1px solid var(--pp-border);border-radius:10px;padding:10px 14px;
+  margin-bottom:12px;background:color-mix(in srgb,var(--pp-surface) 92%,var(--pp-good) 8%)}
+.pp-vpill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--pp-good);
+  color:var(--pp-good);background:color-mix(in srgb,var(--pp-good) 10%,transparent);
+  border-radius:999px;padding:6px 16px;font:800 1.02rem/1 var(--font-body);
+  letter-spacing:.02em;white-space:nowrap}
+.pp-vstats{color:var(--pp-muted);font-size:.8rem;line-height:1.6}
+.pp-vstats b{color:var(--pp-text);font-variant-numeric:tabular-nums}
+
+/* the spectrum — SVG, no external library. Two renderings of the same data:
+   full hero on wide cards, compact minimap under 660px (playground strategy E);
+   the zone cards below carry the interaction on both. */
+.pp-plot{width:100%}
+.pp-plot svg{display:block;width:100%;height:auto}
+.pp-minimap{display:none}
+@media (max-width:660px){
+  .pp-plot-full{display:none}
+  .pp-minimap{display:block;margin:2px 0 4px}
+}
+.pp-dot{cursor:default}
+@media (hover:hover){.pp-dot:hover{filter:brightness(1.25)}}
+.pp-b{opacity:0;transition:opacity .35s ease}
+.pp-b.on{opacity:1}
+
+/* zone cards (strategy E) */
+.pp-zones{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+@media (max-width:660px){.pp-zones{grid-template-columns:1fr}}
+.pp-zone{border:1px solid var(--pp-border);border-radius:10px;padding:10px 12px;
+  min-width:0;opacity:0;transform:translateY(6px);transition:opacity .35s ease,transform .35s ease}
+.pp-zone.on{opacity:1;transform:none}
+.pp-zone h4{margin:0 0 4px;font-size:.78rem;letter-spacing:.04em;display:flex;
+  justify-content:space-between;gap:8px;align-items:baseline}
+.pp-zone .n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.pp-zone p{margin:0;font-size:.76rem;color:var(--pp-muted);line-height:1.5}
+.pp-zone details{margin-top:6px}
+.pp-zone summary{cursor:pointer;font-size:.74rem;color:var(--pp-accent);list-style:none;
+  min-height:24px;display:flex;align-items:center}
+.pp-zone summary::before{content:"▸ ";color:var(--pp-muted)}
+.pp-zone details[open] summary::before{content:"▾ "}
+.pp-zone .zrow{display:flex;gap:8px;align-items:baseline;font-size:.74rem;
+  padding:4px 0;border-top:1px dashed var(--pp-border)}
+.pp-zone .zrow .zp{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.pp-zone .zrow .zt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pp-zbait{border-left:3px solid var(--pp-bad)}
+.pp-zbait h4{color:var(--pp-bad)}
+.pp-zstreet{border-left:3px solid var(--pp-good)}
+.pp-zstreet h4{color:var(--pp-good)}
+.pp-zover{border-left:3px solid var(--pp-accent)}
+.pp-zover h4{color:var(--pp-accent)}
+
+/* funnel / filtered-out card */
+.pp-funnel{margin-top:12px;border:1px solid color-mix(in srgb,var(--pp-warn) 45%,var(--pp-border));
+  background:color-mix(in srgb,var(--pp-warn) 5%,var(--pp-surface));
+  border-radius:10px;padding:10px 14px}
+.pp-funnel h4{margin:0 0 6px;font-size:.8rem;color:var(--pp-warn)}
+.pp-funnel .fl{display:flex;gap:8px;align-items:baseline;font-size:.76rem;
+  color:var(--pp-muted);padding:2px 0}
+.pp-funnel .fl b{color:var(--pp-text);font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+.pp-funnel .fl .cut{color:var(--pp-warn)}
+.pp-funnel .fsum{margin-top:6px;padding-top:6px;border-top:1px dashed var(--pp-border);
+  font-size:.78rem;color:var(--pp-text)}
+.pp-funnel details{margin-top:6px}
+.pp-funnel summary{cursor:pointer;font-size:.74rem;color:var(--pp-accent);list-style:none;min-height:24px;display:flex;align-items:center}
+.pp-funnel summary::before{content:"▸ ";color:var(--pp-muted)}
+.pp-funnel details[open] summary::before{content:"▾ "}
+.pp-funnel .frow{display:flex;gap:8px;align-items:baseline;font-size:.73rem;color:var(--pp-muted);padding:3px 0;border-top:1px dashed var(--pp-border)}
+.pp-funnel .frow .fr{min-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* listing strip */
+.pp-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));
+  gap:10px;margin-top:12px}
+.pp-card{border:1px solid var(--pp-border);border-radius:10px;padding:10px 12px;
+  min-width:0;opacity:0;transform:translateY(6px);transition:opacity .35s ease,transform .35s ease}
+.pp-card.on{opacity:1;transform:none}
+.pp-card .prow{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.pp-card .pp-p{font:700 1.0rem/1 var(--font-body);font-variant-numeric:tabular-nums}
+.pp-chipv{display:inline-block;border-radius:999px;padding:2px 9px;font-size:.64rem;
+  font-weight:800;letter-spacing:.05em;border:1px solid}
+.pp-chipv.BUY{color:var(--pp-good);border-color:var(--pp-good);background:color-mix(in srgb,var(--pp-good) 9%,transparent)}
+.pp-chipv.WAIT{color:var(--pp-warn);border-color:var(--pp-warn);background:color-mix(in srgb,var(--pp-warn) 9%,transparent)}
+.pp-chipv.AVOID{color:var(--pp-bad);border-color:var(--pp-bad);background:color-mix(in srgb,var(--pp-bad) 9%,transparent)}
+.pp-chipv.OVER{color:var(--pp-accent);border-color:var(--pp-accent);background:color-mix(in srgb,var(--pp-accent) 9%,transparent)}
+.pp-card .pt{margin:6px 0 4px;font-size:.78rem;line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pp-card .pm{font-size:.7rem;color:var(--pp-muted);line-height:1.6;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* controls + table */
+.pp-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.pp-btn{appearance:none;font:inherit;font-size:.8rem;color:var(--pp-text);
+  background:color-mix(in srgb,var(--pp-accent) 8%,transparent);border:1px solid var(--pp-border);
+  border-radius:999px;padding:6px 14px;cursor:pointer;min-height:34px}
+.pp-btn:hover{border-color:var(--pp-accent)}
+.pp-count{margin-left:auto;color:var(--pp-muted);font-size:.8rem;font-variant-numeric:tabular-nums}
+.pp-table{margin-top:14px}
+.pp-table summary{cursor:pointer;font-size:.86rem;color:var(--pp-muted)}
+.pp-table table{width:100%;border-collapse:collapse;margin-top:8px;font-size:.74rem}
+.pp-table th{text-align:left;color:var(--pp-muted);font-weight:600;
+  border-bottom:1px solid var(--pp-border);padding:4px 8px;white-space:nowrap}
+.pp-table td{border-bottom:1px solid var(--pp-border);padding:4px 8px;vertical-align:top}
+.pp-table td.mono{font-family:var(--font-mono);white-space:nowrap}
+.pp-caption{margin:10px 0 0;color:var(--pp-muted);font-size:.78rem;line-height:1.5}
+.pp-caption .src{display:block;margin-top:4px}
+@media (prefers-reduced-motion: reduce){
+  .pp-b,.pp-zone,.pp-card{transition:none}
+}
+</style>
+</head>
+<body>
+<div id="sitenav"></div>
+
+<main class="wrap">
+  <div class="pagehead">
+    <h1>💲 Price Spectrum</h1>
+    <p>Is that price real? Every live ask plotted against what <b>2,132 actual
+       sales</b> did over 45 days — with the slop filtered out <b>before you
+       click</b>. One page, two scenarios: a known scam magnet (RTX 3090 on
+       eBay, real capture) and the search-relevance pain point every shopper
+       knows (a very specific dress on an Amazon-style search, simulated).</p>
+  </div>
+
+  <div class="price-embed" id="price" role="region"
+       aria-label="Price Spectrum — live asks vs sold evidence"></div>
+</main>
+
+<div id="sitefooter"></div>
+
+<script src="/app.js"></script>
+<script id="price-data-gpu" type="application/json">{"meta":{"product":"NVIDIA GeForce RTX 3090 \u00b7 24GB GDDR6X","search":"rtx 3090 (eBay.com)","capture_date":"2026-09-11","t_ref":"2026-09-11","tau":45.0,"msrp":1499.0,"window":["2026-06-13","2026-09-11"],"coverage":{"captured":886,"ebay_total":933},"counts":{"live_total":886,"live_included":509,"live_excluded":377,"sold_total":2997,"sold_included":2132,"sold_excluded":865,"sold_in_window":2070,"sold_stale":51,"ended":11,"sold_union_raw":2997,"relisted":75},"reasons_live":{"engineering_board":1,"bundle_multi":5,"product_mismatch":136,"ti_variant":68,"accessory_only":110,"ambiguous_bundle":2,"ambiguous_multivariant":44,"ambiguous_accessory":10,"ambiguous_formfactor":1},"reasons_sold":{"product_mismatch":360,"ti_variant":331,"bundle_multi":13,"accessory_only":111,"ambiguous_accessory":35,"bundle_system":1,"ambiguous_formfactor":7,"ambiguous_multivariant":6,"ambiguous_bundle":1},"fraud_clusters":[["lunoviashop",2]],"honesty_gaps":["seller account age \u2014 not visible in search-result captures","stock-photo / perceptual-hash forensics \u2014 requires image pipeline","seller-network & template detection \u2014 requires cross-listing graph","sold-side shipping cost \u2014 often absent on sold cards; bands use item price","sponsored placement status \u2014 eBay embeds an identical hidden 'Sponsored' label (bidi-scrambled SVG) in every card; true visibility is not reliably recoverable offline, so all listings are treated as organic (sponsored is a 0-point disclosure-only signal)"],"p25":1175.5,"p50":1249.93,"p75":1349.99,"lf":913.76,"uf":1611.72,"live_p50":1799.0,"deals_under_fence":5,"xmax":3200},"zones":{"live":{"over":343,"gap_hi":96,"street":4,"gap_lo":11,"scam":55},"sold":{"street":1084,"gap_hi":424,"over":90,"scam":135,"gap_lo":399}},"hist":[10,0,19,0,0,3,2,5,9,14,12,12,8,7,3,6,3,16,12,33,25,75,120,392,322,314,196,184,75,82,40,41,20,27,9,12,1,3,1,6,4,0,1,2,1,0,0,1,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,2],"cards":[{"title":"Zotac Gaming GeForce Rtx 3090 24GB Gddr6x","price":809.0,"cond":"Pre-Owned","brand":"ZOTAC","seller":"heartlesscapitalist","scount":209,"spct":100.0,"trp":0,"ship":25.0,"loc":"United States","_v":"DEAL"},{"title":"Gigabyte NVIDIA Geforce RTX 3090 Gaming OC 24Gb Graphics Card great condition","price":942.0,"cond":"Pre-Owned","brand":"GIGABYTE","seller":"jpelayo1223","scount":113,"spct":100.0,"trp":0,"ship":15.0,"loc":"United States","_v":"BUY"},{"title":"EVGA GeForce RTX 3090 FTW3 ULTRA 24GB GDDR6X Graphics Card","price":950.0,"cond":"Pre-Owned","brand":"EVGA","seller":"te-687372","scount":17,"spct":100.0,"trp":0,"ship":11.5,"loc":"United States","_v":"BUY"},{"title":"NVIDIA GeForce RTX 3090 Founders Edition 24GB GDDR6 Graphics Card","price":1350.0,"cond":"Pre-Owned","brand":"NVIDIA","seller":"jaost_1115","scount":1,"spct":0.0,"trp":0,"ship":20.0,"loc":"United States","_v":"WAIT"},{"title":"Palit GeForce RTX 3090 GamingPro 24GB Graphics Card","price":1350.0,"cond":"Open Box","brand":"Palit","seller":"ainste-69","scount":1,"spct":100.0,"trp":0,"ship":17.09,"loc":"United States","_v":"WAIT"},{"title":"ZOTAC GAMING GeForce RTX 3090 24GB | Working VRAM & Chip | Power Not Working","price":900.0,"cond":"Parts Only","brand":"ZOTAC","seller":"saroo_0","scount":0,"spct":0.0,"trp":0,"ship":30.0,"loc":"Ireland","_v":"AVOID"},{"title":"NVIDIA GeForce RTX 3090 Founders Edition 24GB Graphics Card - FLAKY - READ DESC","price":888.0,"cond":"Parts Only","brand":"NVIDIA","seller":"seabase5xerox","scount":42,"spct":100.0,"trp":0,"ship":22.67,"loc":"United States","_v":"AVOID"},{"title":"MSI NVIDIA RTX 3090 GAMING X TRIO 24GB GDDR6X - Free Shipping","price":4999.99,"cond":"Pre-Owned","brand":"MSI","seller":"eljojor63","scount":105,"spct":100.0,"trp":0,"ship":0.0,"loc":"United States","_v":"OVER"},{"title":"ASUS ROG Strix RTX 3090 O24G Gaming 24GB GDDR6X GPU Used","price":4896.29,"cond":"Brand New","brand":"ASUS","seller":"dr_nine","scount":1900,"spct":100.0,"trp":0,"ship":40.0,"loc":"Japan","_v":"OVER"}],"asks":[{"price":109.0,"v":"AVOID"},{"price":119.0,"v":"AVOID"},{"price":344.88,"v":"AVOID"},{"price":449.0,"v":"AVOID"},{"price":499.0,"v":"AVOID"},{"price":500.0,"v":"AVOID"},{"price":900.0,"v":"AVOID"},{"price":110.0,"v":"AVOID"},{"price":809.0,"v":"DEAL","best":true},{"price":840.0,"v":"DEAL"},{"price":860.0,"v":"DEAL"},{"price":1299.0,"v":"BUY"},{"price":1300.0,"v":"BUY"},{"price":1349.0,"v":"BUY"},{"price":1400.0,"v":"WAIT"},{"price":1500.0,"v":"WAIT"},{"price":1599.99,"v":"WAIT"},{"price":1626.55,"v":"OVER"},{"price":1799.0,"v":"OVER"},{"price":2398.88,"v":"OVER"},{"price":2999.0,"v":"OVER"}],"table":[{"title":"Zotac Gaming GeForce Rtx 3090 24GB Gddr6x","price":809.0,"cond":"Pre-Owned","brand":"ZOTAC","seller":"heartlesscapitalist","scount":209,"spct":100.0,"trp":0,"ship":25.0,"loc":"United States","_v":"DEAL"},{"title":"Gigabyte NVIDIA Geforce RTX 3090 Gaming OC 24Gb Graphics Card great condition","price":942.0,"cond":"Pre-Owned","brand":"GIGABYTE","seller":"jpelayo1223","scount":113,"spct":100.0,"trp":0,"ship":15.0,"loc":"United States","_v":"BUY"},{"title":"EVGA GeForce RTX 3090 FTW3 ULTRA 24GB GDDR6X Graphics Card","price":950.0,"cond":"Pre-Owned","brand":"EVGA","seller":"te-687372","scount":17,"spct":100.0,"trp":0,"ship":11.5,"loc":"United States","_v":"BUY"},{"title":"NVIDIA GeForce RTX 3090 Founders Edition 24GB GDDR6 Graphics Card","price":1350.0,"cond":"Pre-Owned","brand":"NVIDIA","seller":"jaost_1115","scount":1,"spct":0.0,"trp":0,"ship":20.0,"loc":"United States","_v":"WAIT"},{"title":"Palit GeForce RTX 3090 GamingPro 24GB Graphics Card","price":1350.0,"cond":"Open Box","brand":"Palit","seller":"ainste-69","scount":1,"spct":100.0,"trp":0,"ship":17.09,"loc":"United States","_v":"WAIT"},{"title":"ZOTAC GAMING GeForce RTX 3090 24GB | Working VRAM & Chip | Power Not Working","price":900.0,"cond":"Parts Only","brand":"ZOTAC","seller":"saroo_0","scount":0,"spct":0.0,"trp":0,"ship":30.0,"loc":"Ireland","_v":"AVOID"},{"title":"NVIDIA GeForce RTX 3090 Founders Edition 24GB Graphics Card - FLAKY - READ DESC","price":888.0,"cond":"Parts Only","brand":"NVIDIA","seller":"seabase5xerox","scount":42,"spct":100.0,"trp":0,"ship":22.67,"loc":"United States","_v":"AVOID"},{"title":"MSI NVIDIA RTX 3090 GAMING X TRIO 24GB GDDR6X - Free Shipping","price":4999.99,"cond":"Pre-Owned","brand":"MSI","seller":"eljojor63","scount":105,"spct":100.0,"trp":0,"ship":0.0,"loc":"United States","_v":"OVER"},{"title":"ASUS ROG Strix RTX 3090 O24G Gaming 24GB GDDR6X GPU Used","price":4896.29,"cond":"Brand New","brand":"ASUS","seller":"dr_nine","scount":1900,"spct":100.0,"trp":0,"ship":40.0,"loc":"Japan","_v":"OVER"},{"title":"(FOR PARTS) MSI RTX 3090 GAMING X TRIO 24G GPU (No Core & VRAM) Hong Kong Stock","price":109.0,"cond":"Parts Only","brand":"MSI","seller":"zhou_pc","scount":13500,"spct":99.6,"trp":0,"ship":0.0,"loc":"Hong Kong","_v":"AVOID"},{"title":"(For Parts) ZOTAC GAMING GeForce RTX 3090 Trinity OC GPU *As is*","price":119.0,"cond":"Parts Only","brand":"ZOTAC","seller":"zhou_pc","scount":13500,"spct":99.6,"trp":0,"ship":0.0,"loc":"United States","_v":"AVOID"},{"title":"ASUS GeForce RTX 3090 TURBO Bykski GPU Water Cooling Block RGB Tested","price":344.88,"cond":"Pre-Owned","brand":"ASUS","seller":"risingsungaming","scount":780,"spct":98.4,"trp":0,"ship":105.0,"loc":"Japan","_v":"AVOID"},{"title":"FOR PARTS ASUS ROG Strix GeForce RTX 3090 OC 24GB GDDR6X *DEAD* with core","price":449.0,"cond":"Parts Only","brand":"ASUS","seller":"vdkhoa1983","scount":526,"spct":100.0,"trp":0,"ship":17.12,"loc":"United States","_v":"AVOID"},{"title":"ASUS ROG Strix GeForce RTX 3090 24GB(NOT WORKING | DAMAGED PCB, SEE DESCRIPTION)","price":499.0,"cond":"Parts Only","brand":"ASUS","seller":"anup6850","scount":6,"spct":100.0,"trp":0,"ship":19.86,"loc":"United States","_v":"AVOID"},{"title":"NVIDIA GeForce RTX 3090 Founders Edition Graphics Card PCIe x 16 24GB VRAM","price":500.0,"cond":"Pre-Owned","brand":"NVIDIA","seller":"rate-4541","scount":1,"spct":100.0,"trp":0,"ship":11.03,"loc":"United States","_v":"AVOID"},{"title":"(FOR PARTS) MSI GeForce RTX 3090 Ventus 24G GPU (No Core & VRAM) **AS IS**","price":110.0,"cond":"Parts Only","brand":"MSI","seller":"sweshim-0","scount":31,"spct":100.0,"trp":0,"ship":5.93,"loc":"United States","_v":"AVOID"},{"title":"MSI GeForce RTX 3090 Ventus 3X OC 24GB","price":840.0,"cond":"Pre-Owned","brand":"MSI","seller":"sperr.us2013","scount":919,"spct":98.6,"trp":0,"ship":5.93,"loc":"United States","_v":"BUY"},{"title":"GIGABYTE GeForce RTX 3090 GAMING OC 24GB GDDR6X Graphics Card","price":860.0,"cond":"Pre-Owned","brand":"GIGABYTE","seller":"axistronics","scount":374,"spct":100.0,"trp":0,"ship":0.0,"loc":"United States","_v":"BUY"},{"title":"GIGABYTE GeForce RTX 3090 GAMING OC 24GB GDDR6X Graphics Card","price":1299.0,"cond":"Pre-Owned","brand":"GIGABYTE","seller":"maddox210","scount":4,"spct":100.0,"trp":0,"ship":24.07,"loc":"United States","_v":"BUY"},{"title":"Dell NVIDIA GeForce RTX 3090 24GB","price":1300.0,"cond":"Pre-Owned","brand":"Dell","seller":"nido8865","scount":81,"spct":100.0,"trp":0,"ship":18.75,"loc":"United States","_v":"BUY"},{"title":"NVIDIA GeForce RTX 3090 Founders Edition 24GB GDDR6X GPU FE - Tested, Repasted","price":1349.0,"cond":"Pre-Owned","brand":"NVIDIA","seller":"joey_maffiola","scount":118,"spct":100.0,"trp":0,"ship":14.85,"loc":"United States","_v":"BUY"},{"title":"ASUS ROG Strix NVIDIA GeForce RTX 3090","price":1400.0,"cond":"Pre-Owned","brand":"ASUS","seller":"ehrinjonat","scount":249,"spct":100.0,"trp":0,"ship":9.56,"loc":"United States","_v":"WAIT"},{"title":"HP NVIDIA RTX 3090 24GB GDDR6X Graphics Card (M24410-002)","price":1500.0,"cond":"Pre-Owned","brand":"HP","seller":"audvilk_93","scount":0,"spct":0.0,"trp":0,"ship":null,"loc":"Lithuania","_v":"WAIT"},{"title":"EVGA RTX 3090 FTW3 Ultra Gaming 24GB Graphics Card ARGB LED 24G-P5-3987-KR","price":1599.99,"cond":"Pre-Owned","brand":"EVGA","seller":"wazno","scount":43500,"spct":99.7,"trp":1,"ship":0.0,"loc":"United States","_v":"WAIT"},{"title":"EVGA GeForce RTX 3090 FTW3 ULTRA GAMING 24GB GDDR6X Graphics Card","price":1626.55,"cond":"Pre-Owned","brand":"EVGA","seller":"best-west-deals","scount":1000,"spct":100.0,"trp":0,"ship":36.15,"loc":"Canada","_v":"OVER"},{"title":"MSI GeForce RTX 3090 GAMING X TRIO 24GB GDDR6X Graphics Card w/Warranty NEW","price":1799.0,"cond":"Brand New","brand":"MSI","seller":"gufush24","scount":163,"spct":98.8,"trp":0,"ship":0.0,"loc":"China","_v":"OVER"}],"reasons_live":{"engineering_board":1,"bundle_multi":5,"product_mismatch":136,"ti_variant":68,"accessory_only":110,"ambiguous_bundle":2,"ambiguous_multivariant":44,"ambiguous_accessory":10,"ambiguous_formfactor":1},"reasons_sold":{"product_mismatch":360,"ti_variant":331,"bundle_multi":13,"accessory_only":111,"ambiguous_accessory":35,"bundle_system":1,"ambiguous_formfactor":7,"ambiguous_multivariant":6,"ambiguous_bundle":1},"evidence":{"engineering_board":{"title":"RARE NVIDIA GeForce RTX 3080/3090 GPU Graphics Card Engineering Production Board","price":30000.0,"ev":"RARE NVIDIA GeForce RTX 3080/3090 GPU Graphics Card Engineering Production Board"},"bundle_multi":{"title":"AI INFERENCE SERVER - Dual RTX 3090 48GB VRAM - 256GB RAM - Ready to Run","price":8499.0,"ev":"AI INFERENCE SERVER - Dual RTX 3090 48GB VRAM - 256GB RAM - Ready to Run"},"product_mismatch":{"title":"Gigabyte GeForce RTX 5090 32GB Master OC 32GB GDDR7 Graphics Card","price":7989.0,"ev":"Gigabyte GeForce RTX 5090 32GB Master OC 32GB GDDR7 Graphics Card"},"ti_variant":{"title":"MSI GeForce RTX 3090 Ti SUPRIM X 24GB GDRR6X Graphic Card","price":5949.99,"ev":"MSI GeForce RTX 3090 Ti SUPRIM X 24GB GDRR6X Graphic Card"},"accessory_only":{"title":"2x Nvidia RTX 3090 with EKWB Waterblocks/Active Backplates + 4-slot NVLINK p3657","price":4915.78,"ev":"\u2026a RTX 3090 with EKWB Waterblocks/Active Backplates + 4-slot NVLINK p3657"},"ambiguous_bundle":{"title":"New RTX 3090 24G Gaming Desktop Computer Graphics Card with GDDR6 Mass Stock GPU","price":3134.04,"ev":"New RTX 3090 24G Gaming Desktop Computer Graphics Card with GDDR6 Mass Stock GPU"},"ambiguous_multivariant":{"title":"Dell NVIDIA GeForce RTX 3060 3070 3080 3090 8 10 12 24GB GDDR6X GRAPHICS CARD","price":530.23,"ev":"Dell NVIDIA GeForce RTX 3060 3070 3080 3090 8 10 12 24GB GDDR6X GRAPHICS CARD"},"ambiguous_accessory":{"title":"NVIDIA GeForce RTX 3090 Founders Edition PCIe x16 HDMI DP Fan Heatsink","price":1600.0,"ev":"NVIDIA GeForce RTX 3090 Founders Edition PCIe x16 HDMI DP Fan Heatsink"},"ambiguous_formfactor":{"title":"Aorus RTX 3090 24GB Gaming Box eGPU - Works Well, no RGB","price":1500.0,"ev":"Aorus RTX 3090 24GB Gaming Box eGPU - Works Well, no RGB"},"bundle_system":{"title":"EVGA GeForce RTX 3090 FTW3 Ultra Gaming PCIe x16 DP/HDMI w/ Bracket","price":1225.0,"ev":"EVGA GeForce RTX 3090 FTW3 Ultra Gaming PCIe x16 DP/HDMI w/ Bracket"}}}</script>
+<script id="price-data-dress" type="application/json">{"meta":{"product":"olive green bodycon dress \u00b7 XL","query":"olive green bodycon dress XL","simulated":true,"p25":52,"p50":61,"p75":72,"lf":22,"uf":102,"xmax":175,"live_p50":74.0,"results_total":412,"relevant":38,"slop_total":374},"zones":{"live":{"scam":3,"gap_lo":6,"street":11,"gap_hi":13,"over":5},"sold":{"scam":9,"gap_lo":47,"street":121,"gap_hi":31,"over":6}},"hist":[0,0,0,0,1,0,0,0,0,0,0,0,1,2,3,5,7,9,11,14,18,20,21,19,16,13,9,7,5,4,3,3,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"funnel":[{"n":96,"why":"no XL in stock \u2014 every size but yours"},{"n":71,"why":"\u201colive\u201d that isn\u2019t (sage, khaki, forest)"},{"n":58,"why":"not actually bodycon (A-line, skater, swing)"},{"n":44,"why":"accessories \u2014 belts, shapewear, cover-ups"},{"n":33,"why":"juniors\u2019 size runs (S\u2013L only)"},{"n":27,"why":"wrong length (midi, maxi)"},{"n":22,"why":"stock-photo resellers"},{"n":14,"why":"bait pricing ($9.99 \u201cflash sale\u201d)"},{"n":9,"why":"duplicate relists"}],"evidence":{"no_xl_in_stock":{"title":"Olive Ribbed Bodycon Dress \u2014 S / M / L (XL sold out)","price":39.99},"wrong_green":{"title":"Sage Green Wrap Midi Dress Size XL","price":44.0},"not_bodycon":{"title":"Olive Green A-Line Swing Dress XL","price":49.5},"accessory_only":{"title":"Olive Green Satin Waist Belt \u2014 one size","price":12.99},"juniors_size_run":{"title":"Juniors Olive Bodycon Dress (S M L)","price":29.99},"wrong_length":{"title":"Olive Green Maxi Bodycon Dress XL","price":54.0}},"asks":[{"price":9.99,"v":"AVOID"},{"price":14.99,"v":"AVOID"},{"price":18.99,"v":"AVOID"},{"price":28,"v":"WAIT"},{"price":34,"v":"WAIT"},{"price":41,"v":"BUY"},{"price":47,"v":"DEAL","best":true},{"price":54,"v":"BUY"},{"price":57,"v":"BUY"},{"price":61,"v":"BUY"},{"price":64,"v":"BUY"},{"price":68,"v":"BUY"},{"price":71,"v":"BUY"},{"price":78,"v":"WAIT"},{"price":85,"v":"WAIT"},{"price":95,"v":"WAIT"},{"price":108,"v":"OVER"},{"price":119,"v":"OVER"},{"price":135,"v":"OVER"},{"price":160,"v":"OVER"}],"cards":[{"title":"Verdant Muse Ribbed Olive Bodycon Dress XL","price":47,"cond":"New with tags","seller":"veridianlabel","scount":1204,"spct":98.4,"trp":1,"ship":0,"loc":"US","_v":"DEAL"},{"title":"Atelier Verde Square-Neck Bodycon, Olive, XL","price":41,"cond":"New with tags","seller":"atelierverde","scount":518,"spct":96.2,"trp":0,"ship":4.99,"loc":"US","_v":"BUY"},{"title":"Cedar & Sage Ruched-Side Bodycon Dress XL","price":54,"cond":"New","seller":"cedarandsage","scount":2310,"spct":97.8,"trp":0,"ship":0,"loc":"US","_v":"BUY"},{"title":"Meadow Lane Knit Bodycon Dress Olive Green XL","price":57,"cond":"New","seller":"meadowlaneco","scount":846,"spct":99.1,"trp":1,"ship":0,"loc":"US","_v":"BUY"},{"title":"Juniper & Co. Seamless Scoop Bodycon XL","price":64,"cond":"New","seller":"juniperandco","scount":1977,"spct":98.8,"trp":0,"ship":0,"loc":"US","_v":"BUY"},{"title":"Olive Green Bodycon Dress XL","price":34,"cond":"New","seller":"shop_olive_deals","scount":3,"spct":100.0,"trp":0,"ship":7.99,"loc":"US","_v":"WAIT"},{"title":"FLASH SALE! Olive Bodycon Dress (runs small \u2014 order true size)","price":9.99,"cond":"New","seller":"flashstyles2026","scount":0,"spct":0.0,"trp":0,"ship":8.99,"loc":"US","_v":"AVOID"},{"title":"Maison du Vert \u201cBoutique Edition\u201d Bodycon XL (authenticity card)","price":135,"cond":"New with tags","seller":"maisonduvert","scount":68,"spct":91.2,"trp":0,"ship":12.99,"loc":"US","_v":"OVER"},{"title":"Couture Olive Seamless Bodycon XL \u2014 limited run","price":119,"cond":"New","seller":"coutureolive","scount":12,"spct":95.0,"trp":0,"ship":9.99,"loc":"US","_v":"OVER"}],"table":[{"title":"Verdant Muse Ribbed Olive Bodycon Dress XL","price":47,"cond":"New with tags","seller":"veridianlabel","scount":1204,"spct":98.4,"trp":1,"ship":0,"loc":"US","_v":"DEAL"},{"title":"Atelier Verde Square-Neck Bodycon, Olive, XL","price":41,"cond":"New with tags","seller":"atelierverde","scount":518,"spct":96.2,"trp":0,"ship":4.99,"loc":"US","_v":"BUY"},{"title":"Cedar & Sage Ruched-Side Bodycon Dress XL","price":54,"cond":"New","seller":"cedarandsage","scount":2310,"spct":97.8,"trp":0,"ship":0,"loc":"US","_v":"BUY"},{"title":"Meadow Lane Knit Bodycon Dress Olive Green XL","price":57,"cond":"New","seller":"meadowlaneco","scount":846,"spct":99.1,"trp":1,"ship":0,"loc":"US","_v":"BUY"},{"title":"Selby Street Satin Bodycon Dress Olive XL","price":61,"cond":"New","seller":"selbystreet","scount":312,"spct":96.5,"trp":0,"ship":5.99,"loc":"US","_v":"BUY"},{"title":"Juniper & Co. Seamless Scoop Bodycon XL","price":64,"cond":"New","seller":"juniperandco","scount":1977,"spct":98.8,"trp":0,"ship":0,"loc":"US","_v":"BUY"},{"title":"Olive Branch Boutique Zip-Back Bodycon XL","price":68,"cond":"New","seller":"olivebranchbtq","scount":433,"spct":97.4,"trp":0,"ship":3.99,"loc":"US","_v":"BUY"},{"title":"Harlow & Pine Double-Layer Bodycon XL","price":71,"cond":"New","seller":"harlowandpine","scount":94,"spct":100.0,"trp":0,"ship":0,"loc":"US","_v":"BUY"},{"title":"Verdant Muse Satin Bodycon Olive XL (final cut)","price":78,"cond":"New","seller":"veridianlabel","scount":27,"spct":92.3,"trp":0,"ship":0,"loc":"US","_v":"WAIT"},{"title":"Atelier Verde Cocktail Bodycon Olive XL","price":85,"cond":"New","seller":"atelierverde","scount":1900,"spct":99.2,"trp":1,"ship":6.99,"loc":"US","_v":"WAIT"},{"title":"LUXE Label Velvet Bodycon Dress Olive XL","price":95,"cond":"New","seller":"luxelabel","scount":46,"spct":88.9,"trp":0,"ship":8.99,"loc":"US","_v":"WAIT"},{"title":"Olive Ribbed Bodycon Dress XL (slight irregular)","price":28,"cond":"New with defects","seller":"clearance_olive","scount":12,"spct":87.1,"trp":0,"ship":6.99,"loc":"US","_v":"WAIT"},{"title":"Olive Green Bodycon Dress XL","price":34,"cond":"New","seller":"shop_olive_deals","scount":3,"spct":100.0,"trp":0,"ship":7.99,"loc":"US","_v":"WAIT"},{"title":"FLASH SALE! Olive Bodycon Dress (runs small \u2014 order true size)","price":9.99,"cond":"New","seller":"flashstyles2026","scount":0,"spct":0.0,"trp":0,"ship":8.99,"loc":"US","_v":"AVOID"},{"title":"Olive Green Sexy Bodycon Dress XL (99 in stock)","price":14.99,"cond":"New","seller":"trendycastle","scount":1,"spct":100.0,"trp":0,"ship":9.99,"loc":"CN","_v":"AVOID"},{"title":"New Olive Bodycon Cocktail Dress XL","price":18.99,"cond":"New","seller":"novafashion_","scount":0,"spct":0.0,"trp":0,"ship":7.49,"loc":"US","_v":"AVOID"},{"title":"Maison du Vert \u201cBoutique Edition\u201d Bodycon XL (authenticity card)","price":135,"cond":"New with tags","seller":"maisonduvert","scount":68,"spct":91.2,"trp":0,"ship":12.99,"loc":"US","_v":"OVER"},{"title":"Couture Olive Seamless Bodycon XL \u2014 limited run","price":119,"cond":"New","seller":"coutureolive","scount":12,"spct":95.0,"trp":0,"ship":9.99,"loc":"US","_v":"OVER"},{"title":"Boutique Verdi Designer Bodycon XL","price":160,"cond":"New with tags","seller":"boutiqueverdi","scount":3,"spct":100.0,"trp":0,"ship":19.99,"loc":"IT","_v":"OVER"},{"title":"Harlow & Pine Runway Sample Bodycon Olive XL","price":108,"cond":"New","seller":"harlowandpine","scount":205,"spct":97.1,"trp":0,"ship":0,"loc":"US","_v":"OVER"}]}</script>
+<script>
+(() => {
+"use strict";
+
+/* ---- scenario registry (map.html pattern: one array drives everything) ---- */
+const GPU = JSON.parse(document.getElementById("price-data-gpu").textContent);
+const DRESS = JSON.parse(document.getElementById("price-data-dress").textContent);
+
+const SCENARIOS = [
+  {
+    id: "gpu", data: GPU, tab: "🎮 RTX 3090 · real capture",
+    title: "NVIDIA GeForce RTX 3090 · 24GB GDDR6X",
+    sub: "eBay.com · captured 2026-09-11 · 509 live asks + 2,132 included sold "
+       + "· 1,242 listings filtered out before you clicked",
+    chips: ["real capture", "45-day window", "MSRP $1,499"],
+    chipClass: "real",
+    verdictPill: "● BUY ≤ $1,350",
+    verdictStats: "street band <b>$1,175–$1,350</b> · sold median <b>$1,250</b> "
+       + "· sellers’ ask median <b>$1,799</b> — the gap is the story",
+    msrp: 1499,
+    zones: [
+      {cls:"zbait", head:"⚠ BAIT ZONE", n:"55 live",
+       sub:"under $914 — 47 flagged bait, but 5 verified deals hide here (★). Seller signals decide, not price alone."},
+      {cls:"zstreet", head:"■ STREET BAND", n:"4 live · 1,084 sold",
+       sub:"$1,175–$1,350 — what buyers actually pay. Almost nobody asks here; the sold density lives in this band."},
+      {cls:"zover", head:"□ OVER-ASK", n:"343 live",
+       sub:"above $1,612 — two-thirds of sellers ask over the fence. Sold data says wait."},
+    ],
+    funnelTitle: "🚫 1,242 listings filtered out before you clicked",
+    caption: "Real capture from eBay.com on 2026-09-11 (search “rtx 3090”, "
+      + "coverage 886/933 live listings; sold window Jun 13 – Sep 11, 2026, "
+      + "τ = 45 d). Included: 509 live + 2,132 sold. Excluded with reasons: "
+      + "377 live + 865 sold — including a $30,000 “engineering sample” and "
+      + "plenty of RTX 3090 <i>Ti</i> dressed up as a 3090. Fences are "
+      + "p25/p75 ± 1.5×IQR of included sold prices; every number on this card "
+      + "is computed from the capture at render time. The 2,132 sold rows "
+      + "appear as the density silhouette and stats — the table lists a "
+      + "26-row live sample. Research demo; not affiliated with eBay or NVIDIA.",
+  },
+  {
+    id: "dress", data: DRESS, tab: "👗 Dress XL · simulated",
+    title: "“olive green bodycon dress in XL”",
+    sub: "Amazon-style marketplace search · simulated market · 412 results → "
+       + "38 that actually match → priced on their own spectrum",
+    chips: ["SIMULATED DATA", "illustrative", "not affiliated"],
+    chipClass: "demo",
+    verdictPill: "● BUY ≤ $72",
+    verdictStats: "street band <b>$52–$72</b> · sold median <b>$61</b> "
+       + "· sellers’ ask median <b>$74</b> — and every card is actually your size",
+    msrp: null,
+    zones: [
+      {cls:"zbait", head:"⚠ BAIT ZONE", n:"3 listings",
+       sub:"under $22 — flash-sale bait on accounts with no history."},
+      {cls:"zstreet", head:"■ STREET BAND", n:"11 live · 121 sold",
+       sub:"$52–$72 — what this dress actually sells for. ★ best pick sits just under the band with a clean seller."},
+      {cls:"zover", head:"□ OVER-ASK", n:"5 listings",
+       sub:"above $102 — “boutique edition” markups on the same product."},
+    ],
+    funnelTitle: "✂ 374 of 412 results were slop — filtered before you clicked",
+    caption: "Simulated marketplace data — illustrative only, not affiliated "
+      + "with Amazon and not real listings. The slop taxonomy mirrors the "
+      + "real exclusion reasons used on the eBay capture (wrong variant, "
+      + "accessory-only, ambiguous listing): every search result that isn’t "
+      + "actually an olive-green bodycon dress with XL in stock is filtered "
+      + "with a machine-readable reason before it can waste your click.",
+  },
+];
+
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = n => "$" + (n >= 1000
+  ? Math.round(n).toLocaleString("en-US")
+  : (Number.isInteger(n) ? n : n.toFixed(2)).toString());
+
+/* ---- verdict presentation ---- */
+const CHIP = {DEAL:"BUY", BUY:"BUY", WAIT:"WAIT", AVOID:"AVOID", OVER:"OVER"};
+const chipOf = v => CHIP[v] || v;
+
+/* ---- mount + render ------------------------------------------------------ */
+const root = document.getElementById("price");
+root.innerHTML = `
+  <div class="pp-tabs" role="tablist" aria-label="Scenario"></div>
+  <div class="pp-head">
+    <div><h2 class="pp-title"></h2><p class="pp-sub"></p></div>
+    <div class="pp-chips"></div>
+  </div>
+  <div class="pp-verdict">
+    <span class="pp-vpill"></span>
+    <span class="pp-vstats"></span>
+  </div>
+  <div class="pp-plot"></div>
+  <div class="pp-zones"></div>
+  <div class="pp-funnel"></div>
+  <div class="pp-strip"></div>
+  <div class="pp-controls">
+    <button class="pp-btn pp-replay" type="button">▶ Replay unfold</button>
+    <span class="pp-count"></span>
+  </div>
+  <details class="pp-table"><summary></summary>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>price</th><th>verdict</th><th>condition</th><th>seller</th>
+        <th>fb</th><th>%</th><th>top-rated</th><th>ship</th><th>ships from</th><th>title</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </details>
+  <p class="pp-caption"></p>`;
+
+const $ = s => root.querySelector(s);
+const tabsEl = $(".pp-tabs"), titleEl = $(".pp-title"), subEl = $(".pp-sub"),
+      chipsEl = $(".pp-chips"), pillEl = $(".pp-vpill"), statsEl = $(".pp-vstats"),
+      plotEl = $(".pp-plot"), zonesEl = $(".pp-zones"), funnelEl = $(".pp-funnel"),
+      stripEl = $(".pp-strip"), countEl = $(".pp-count"), tbody = root.querySelector(".pp-table tbody"),
+      tableSum = root.querySelector(".pp-table summary"), capEl = $(".pp-caption");
+
+let cur = Math.max(0, SCENARIOS.findIndex(s => s.id ===
+  new URLSearchParams(location.search).get("s")));
+const S = () => SCENARIOS[cur];
+const D = () => S().data;
+const M = () => D().meta;
+
+/* UDL bridge — read live tokens at render time (map.html pattern) */
+const cssVar = n => getComputedStyle(root).getPropertyValue(n).trim();
+
+/* ---- the spectrum SVG ---------------------------------------------------- */
+function buildSVG(mini) {
+  const d = D(), m = M();
+  const W = 640, x0 = 10, x1 = 630;
+  const top = mini ? 12 : 40, base = mini ? 58 : 180;
+  const X = p => x0 + (p / m.xmax) * (x1 - x0);
+  const zones = [[0, m.lf, "--bad", .10], [m.lf, m.p25, "--warn", .05],
+                 [m.p25, m.p75, "--good", .13], [m.p75, m.uf, "--warn", .05],
+                 [m.uf, m.xmax, "--accent", .07]];
+  let g = "";
+  /* zones */
+  for (const [a, b, tok, op] of zones) {
+    const c = cssVar(tok);
+    g += `<rect class="pp-b" data-b="0" x="${X(a).toFixed(1)}" y="${top}" width="${(X(b)-X(a)).toFixed(1)}" height="${base-top}" fill="${c}" fill-opacity="${op}"/>`;
+  }
+  /* axis + ticks */
+  g += `<line class="pp-b" data-b="0" x1="${x0}" y1="${base}" x2="${x1}" y2="${base}" stroke="${cssVar("--muted")}" stroke-width="1" stroke-opacity=".55"/>`;
+  const ticks = mini ? [0, m.xmax] : [0, .25, .5, .75, 1].map(f => f * m.xmax);
+  for (const t of ticks) {
+    const lbl = t >= 1000 ? "$" + (t/1000).toFixed(1).replace(/\.0$/, "") + "k" : "$" + Math.round(t);
+    g += `<text class="pp-b" data-b="0" x="${X(t)}" y="${base + (mini?12:15)}" text-anchor="middle" font-size="${mini?9:10}" fill="${cssVar("--muted")}">${lbl}</text>`;
+  }
+  /* sold density silhouette from the histogram */
+  const hist = d.hist, NB = hist.length, peak = Math.max(...hist);
+  const hMax = (base - top) * (mini ? .72 : .55);
+  let path = `M ${x0} ${base}`;
+  hist.forEach((h, i) => {
+    const xa = x0 + (i / NB) * (x1 - x0), xb = x0 + ((i + 1) / NB) * (x1 - x0);
+    const y = base - (h / peak) * hMax;
+    path += ` L ${xa.toFixed(1)} ${y.toFixed(1)} L ${xb.toFixed(1)} ${y.toFixed(1)}`;
+  });
+  path += ` L ${x1} ${base} Z`;
+  const dens = cssVar("--accent");
+  g += `<defs><linearGradient id="ppdg${mini?"m":"f"}" x1="0" y1="0" x2="0" y2="1">`
+     + `<stop offset="0" stop-color="${dens}" stop-opacity=".42"/><stop offset="1" stop-color="${dens}" stop-opacity=".05"/></linearGradient></defs>`;
+  g += `<path class="pp-b" data-b="1" d="${path}" fill="url(#ppdg${mini?"m":"f"})"/>`;
+  /* fences + median */
+  for (const [v, lab] of [[m.lf, "fence " + fmt(m.lf)], [m.uf, "fence " + fmt(m.uf)]]) {
+    g += `<line class="pp-b" data-b="2" x1="${X(v)}" y1="${top}" x2="${X(v)}" y2="${base}" stroke="${cssVar("--muted")}" stroke-dasharray="4 4" stroke-opacity=".7"/>`;
+    if (!mini) g += `<text class="pp-b" data-b="2" x="${X(v)}" y="${top - 5}" text-anchor="middle" font-size="8.5" fill="${cssVar("--muted")}">${lab}</text>`;
+  }
+  g += `<line class="pp-b" data-b="2" x1="${X(m.p50)}" y1="${top}" x2="${X(m.p50)}" y2="${base}" stroke="${cssVar("--accent")}" stroke-dasharray="2 4"/>`;
+  if (!mini) g += `<text class="pp-b" data-b="2" x="${X(m.p50) - 4}" y="${base - 6}" text-anchor="end" font-size="9" fill="${cssVar("--accent")}" font-weight="600">sold median ${fmt(m.p50)}</text>`;
+  /* MSRP pin (gpu only) */
+  if (S().msrp != null && !mini) {
+    const mx = X(S().msrp);
+    g += `<g class="pp-b" data-b="5"><line x1="${mx}" y1="${top - 12}" x2="${mx}" y2="${base}" stroke="${cssVar("--muted")}"/>`
+       + `<path d="M ${mx-4} ${top-12} l 4 -8 l 4 8 z" fill="${cssVar("--muted")}"/>`
+       + `<text x="${mx + 5}" y="${top - 16}" font-size="9" fill="${cssVar("--muted")}" font-weight="600">MSRP ${fmt(S().msrp)}</text></g>`;
+  }
+  /* live ask dots — altitude suggests the verdict row (never color alone:
+     every dot's verdict also exists as chip text below + table row) */
+  const DOT = {AVOID:"--bad", DEAL:"--good", BUY:"--good", WAIT:"--warn", OVER:"--accent"};
+  const ROW = {AVOID:0, DEAL:1, BUY:1, WAIT:2, OVER:3};
+  const r = mini ? 4 : 6;
+  const yFor = (v, i) => {
+    const row = ROW[v] ?? 1;
+    if (mini) return top + 8 + [0.76, 0.48, 0.28, 0.1][row] * (base - top - 12) + ((i * 37) % 6);
+    const [y0, y1] = [[base-30,base-14],[base-66,base-46],[base-96,base-78],[base-126,base-108]][row];
+    return y0 + ((i * 37) % (y1 - y0));
+  };
+  let i = 0;
+  for (const a of d.asks) {
+    const y = yFor(a.v, i++);
+    const c = cssVar(DOT[a.v]);
+    const beat = a.v === "AVOID" ? 3 : (a.v === "OVER" ? 5 : 4);
+    const tt = esc(fmt(a.price) + " live ask · " + chipOf(a.v));
+    if (a.best) {
+      g += `<g class="pp-b" data-b="5"><circle cx="${X(a.price)}" cy="${y}" r="${r + 7}" fill="none" stroke="${c}" stroke-opacity=".55" stroke-width="1.5"><title>${tt} ★ best deal</title></circle>`
+         + `<circle cx="${X(a.price)}" cy="${y}" r="${r + 2}" fill="${c}" stroke="${cssVar("--card")}" stroke-width="1.5"></circle>`
+         + `<text x="${X(a.price)}" y="${y + 3.5}" text-anchor="middle" font-size="${mini?8:10}" fill="${cssVar("--card")}" font-weight="700">★</text></g>`;
+    } else {
+      g += `<circle class="pp-b" data-b="${beat}" cx="${X(a.price)}" cy="${y}" r="${r}" fill="${c}" stroke="${cssVar("--card")}" stroke-width="1"><title>${tt}</title></circle>`;
+    }
+  }
+  /* zone labels (full only) */
+  if (!mini) {
+    g += `<text class="pp-b" data-b="0" x="${X(m.lf * .55)}" y="${top + 11}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${cssVar("--bad")}" letter-spacing=".5">⚠ BAIT ZONE</text>`
+       + `<text class="pp-b" data-b="0" x="${X((m.p25 + m.p75) / 2)}" y="${top + 11}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${cssVar("--good")}" letter-spacing=".5">■ STREET BAND</text>`
+       + `<text class="pp-b" data-b="0" x="${x1 - 4}" y="${top + 11}" text-anchor="end" font-size="9.5" font-weight="700" fill="${cssVar("--accent")}" letter-spacing=".5">□ OVER-ASK</text>`
+       + `<text class="pp-b" data-b="1" x="${x1}" y="${base - 10}" text-anchor="end" font-size="9" fill="${cssVar("--muted")}" font-style="italic">silhouette: ${Number(d.zones.sold.street + d.zones.sold.gap_lo + d.zones.sold.scam + d.zones.sold.gap_hi + d.zones.sold.over).toLocaleString("en-US")} sold prices</text>`;
+  }
+  const h = mini ? 76 : 250;
+  return `<svg viewBox="0 0 ${W} ${h}" role="img" aria-label="Price spectrum: live asks plotted over the sold-price density">${g}</svg>`;
+}
+
+/* ---- zone cards ---------------------------------------------------------- */
+function zoneRows(list) {
+  return list.map(r => `<div class="zrow"><span class="zp">${fmt(r.price)}</span>`
+    + `<span class="zt" title="${esc(r.title)}">${esc(r.title.slice(0, 46))}${r.title.length > 46 ? "…" : ""}</span>`
+    + `<span class="pp-chipv ${chipOf(r._v)}">${chipOf(r._v)}${r._v === "DEAL" ? " ★" : ""}</span></div>`).join("");
+}
+function buildZones() {
+  const d = D();
+  const byZone = {
+    zbait:  d.table.filter(r => r.price < M().lf),
+    zstreet: d.table.filter(r => r.price >= M().p25 && r.price <= M().p75),
+    zover:  d.table.filter(r => r.price > M().uf),
+  };
+  zonesEl.innerHTML = S().zones.map(z => `
+    <div class="pp-zone ${z.cls}">
+      <h4>${z.head}<span class="n">${z.n}</span></h4>
+      <p>${z.sub}</p>
+      ${byZone[z.cls] && byZone[z.cls].length ? `<details><summary>top listings in this zone</summary>
+        ${zoneRows(byZone[z.cls].slice(0, 5))}</details>` : ""}
+    </div>`).join("");
+}
+
+/* ---- funnel card --------------------------------------------------------- */
+function buildFunnel() {
+  const d = D();
+  if (S().id === "gpu") {
+    const rl = d.reasons_live;
+    const LINES = [
+      ["not the actual card", rl.product_mismatch],
+      ["accessory-only listing", rl.accessory_only],
+      ["3090 Ti dressed as a 3090", rl.ti_variant],
+      ["ambiguous multi-variant listing", rl.ambiguous_multivariant],
+      ["bundle / multi-item lot", rl.bundle_multi],
+    ];
+    funnelEl.innerHTML = `<h4>${S().funnelTitle}</h4>`
+      + LINES.filter(l => l[1]).map(l =>
+        `<div class="fl"><b>${l[1]}</b><span class="cut">✂</span><span>${l[0]}</span></div>`).join("")
+      + `<div class="fl"><b>+${(rl.ambiguous_accessory||0)+(rl.ambiguous_bundle||0)+(rl.ambiguous_formfactor||0)+(rl.engineering_board||0)}</b><span class="cut">✂</span><span>ambiguous listings + a $30,000 “engineering sample”</span></div>`
+      + `<div class="fsum">377 live + 865 sold excluded — every one a listing you didn’t have to open.</div>`
+      + `<details><summary>evidence — real excluded listings</summary>${evidenceRows(d)}</details>`;
+  } else {
+    funnelEl.innerHTML = `<h4>${S().funnelTitle}</h4>`
+      + d.funnel.map(f =>
+        `<div class="fl"><b>${f.n}</b><span class="cut">✂</span><span>${f.why}</span></div>`).join("")
+      + `<div class="fsum">38 relevant results → priced on their own spectrum below. `
+      + `Every one of the 374 was a product page you didn’t waste a click on.</div>`
+      + `<details><summary>what the slop looked like</summary>${evidenceRows(d)}</details>`;
+  }
+}
+function evidenceRows(d) {
+  return Object.entries(d.evidence).slice(0, 6).map(([k, e]) =>
+    `<div class="frow"><span class="fr">${esc(k)}</span><span>${esc(e.title.slice(0, 58))}${e.title.length > 58 ? "…" : ""}</span><span style="white-space:nowrap">${fmt(e.price)}</span></div>`).join("");
+}
+
+/* ---- listing strip + table ---------------------------------------------- */
+function cardMeta(r) {
+  const bits = [];
+  if (r.cond) bits.push(esc(r.cond));
+  if (r.scount != null) bits.push(`${Number(r.scount).toLocaleString("en-US")} fb${r.spct != null ? " · " + Number(r.spct).toFixed(1) + "%" : ""}`);
+  if (r.trp) bits.push("✓ top-rated");
+  if (r.ship != null) bits.push(r.ship === 0 ? "ships free" : "+" + fmt(r.ship) + " ship");
+  if (r.loc) bits.push(esc(r.loc));
+  return bits.join(" · ");
+}
+function buildStrip() {
+  stripEl.innerHTML = D().cards.map(r => `
+    <div class="pp-card">
+      <div class="prow"><span class="pp-p">${r._v === "DEAL" ? "★ " : ""}${fmt(r.price)}</span>
+        <span class="pp-chipv ${chipOf(r._v)}">${chipOf(r._v)}${r._v === "DEAL" ? " ★ best deal" : ""}</span></div>
+      <div class="pt" title="${esc(r.title)}">${esc(r.title)}</div>
+      <div class="pm">${cardMeta(r)}</div>
+    </div>`).join("");
+}
+function buildTable() {
+  tbody.innerHTML = D().table.map(r => `
+    <tr><td class="mono">${fmt(r.price)}</td>
+    <td><span class="pp-chipv ${chipOf(r._v)}">${chipOf(r._v)}</span></td>
+    <td>${esc(r.cond || "—")}</td><td>${esc(r.seller || "—")}</td>
+    <td class="mono">${r.scount != null ? Number(r.scount).toLocaleString("en-US") : "—"}</td>
+    <td class="mono">${r.spct != null ? Number(r.spct).toFixed(1) : "—"}</td>
+    <td>${r.trp ? "✓" : "—"}</td>
+    <td class="mono">${r.ship != null ? (r.ship === 0 ? "free" : fmt(r.ship)) : "—"}</td>
+    <td>${esc(r.loc || "—")}</td><td>${esc(r.title)}</td></tr>`).join("");
+  tableSum.textContent = `Data of record — ${D().table.length}-row ${S().id === "gpu" ? "live-listing sample (of 509)" : "sample"} · the spectrum is its projection`;
+}
+
+/* ---- scenario fill + unfold --------------------------------------------- */
+function fillScenario() {
+  const sc = S();
+  titleEl.textContent = sc.title;
+  subEl.textContent = sc.sub;
+  chipsEl.innerHTML = `<span class="pp-chip ${sc.chipClass}">${sc.chips[0]}</span>`
+    + sc.chips.slice(1).map(c => `<span class="pp-chip">${esc(c)}</span>`).join("");
+  pillEl.textContent = sc.verdictPill;
+  statsEl.innerHTML = sc.verdictStats;
+  plotEl.innerHTML = `<div class="pp-minimap">${buildSVG(true)}</div>`
+    + `<div class="pp-plot-full">${buildSVG(false)}</div>`;
+  buildZones(); buildFunnel(); buildStrip(); buildTable();
+  capEl.innerHTML = esc(sc.caption).replace(/&lt;i&gt;|&lt;\/i&gt;/g, "");
+}
+
+let timer = null, beat = 0, BEATS = 8;
+function reveal(n) {
+  /* SVG groups by data-b, then zone cards and listing cards stagger after beat 6 */
+  root.querySelectorAll(`.pp-b[data-b]`).forEach(el =>
+    el.classList.toggle("on", n >= Number(el.dataset.b)));
+  [...zonesEl.children].forEach((el, i) => el.classList.toggle("on", n >= 6 + i));
+  [...stripEl.children].forEach((el, i) => el.classList.toggle("on", n >= 6 + Math.min(i, 2)));
+}
+function step() {
+  beat++;
+  reveal(beat);
+  countEl.textContent = beatLabel();
+  if (beat >= BEATS) { timer = null; return; }
+  timer = setTimeout(step, reduced ? 0 : 420);
+}
+function beatLabel() {
+  const d = D();
+  return `${d.asks.length} of ${S().id === "gpu" ? 509 : 38} asks sampled on the axis · `
+    + `${Number(d.zones.sold.street + d.zones.sold.gap_lo + d.zones.sold.scam + d.zones.sold.gap_hi + d.zones.sold.over).toLocaleString("en-US")} sold in silhouette`;
+}
+function play() {
+  if (timer) { clearTimeout(timer); timer = null; }
+  beat = 0; reveal(0); countEl.textContent = "";
+  if (reduced) { beat = BEATS; reveal(beat); countEl.textContent = beatLabel(); return; }
+  timer = setTimeout(step, 350);
+}
+
+/* ---- tabs + deep links (map.html pattern) -------------------------------- */
+function buildTabs() {
+  tabsEl.innerHTML = "";
+  SCENARIOS.forEach((sc, i) => {
+    const b = document.createElement("button");
+    b.className = "pp-tab"; b.type = "button"; b.textContent = sc.tab;
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", String(i === cur));
+    b.addEventListener("click", () => setScenario(i));
+    tabsEl.appendChild(b);
+  });
+}
+function setScenario(i) {
+  cur = i;
+  [...tabsEl.children].forEach((b, j) => b.setAttribute("aria-selected", String(j === cur)));
+  const u = new URL(location);
+  u.searchParams.set("s", S().id);
+  history.replaceState(null, "", u);
+  fillScenario(); play();
+}
+
+$(".pp-replay").addEventListener("click", play);
+buildTabs(); fillScenario(); play();
+})();
+</script>
+</body>
+</html>
