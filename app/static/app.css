@@ -1,0 +1,131 @@
+/* Shared app chrome. Colors/fonts/radius/shadow come from the UDL
+   (/udl.css — generated from udl.json); this file only lays things out. */
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.6 var(--font-body,system-ui);background:var(--bg);color:var(--ink)}
+.wrap{max-width:980px;margin:0 auto;padding:0 20px}
+a{color:var(--accent-ink)}
+
+/* sticky site header (rendered by app.js into #sitenav) */
+header.site{position:sticky;top:0;z-index:50;border-bottom:1px solid var(--line);
+  background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(8px)}
+header.site .wrap{display:flex;align-items:center;gap:18px;padding:12px 20px;flex-wrap:wrap}
+header.site .logo{font-weight:700;font-size:1.02rem;color:var(--ink);text-decoration:none;display:flex;gap:8px;align-items:center}
+header.site nav{display:flex;gap:4px;flex-wrap:wrap}
+header.site nav a{padding:6px 11px;border-radius:999px;text-decoration:none;color:var(--muted);font-size:.92rem}
+header.site nav a:hover{color:var(--ink);background:var(--accent-soft)}
+header.site nav a.active{color:var(--accent-ink);background:var(--accent-soft);font-weight:600}
+header.site .spacer{flex:1}
+header.site .mode-chip{border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:.78rem;color:var(--muted)}
+header.site .mode-chip.demo{border-color:var(--warn);color:var(--warn)}
+
+main{padding:26px 0 70px}
+.pagehead{margin:4px 0 18px}
+.pagehead h1{font-size:1.45rem;margin:0 0 4px}
+.pagehead p{margin:0;color:var(--muted);font-size:.92rem}
+
+/* cards + forms */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+textarea,input[type=text],input[type=email],select{width:100%;border:1px solid var(--line);
+  border-radius:10px;padding:12px;font:inherit;color:inherit;background:transparent;resize:vertical}
+textarea:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.row{display:flex;gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap}
+label.file{display:inline-flex;gap:8px;align-items:center;border:1px dashed var(--line);border-radius:10px;
+  padding:8px 14px;cursor:pointer;color:var(--muted);font-size:.9rem}
+label.file:hover{border-color:var(--accent);color:var(--accent-ink)}
+label.file input{display:none}
+button{font:inherit;cursor:pointer;border-radius:10px}
+.btn{background:var(--accent);color:#fff;border:none;padding:11px 22px;font-weight:600}
+.btn:disabled{opacity:.55;cursor:wait}
+.btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line);font-weight:400}
+.btn.small{padding:7px 13px;font-size:.88rem}
+.hint{color:var(--muted);font-size:.84rem;margin-top:10px}
+.thumbs{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.thumb{position:relative}
+.thumb img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.thumb button{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;border:none;
+  background:var(--ink);color:var(--bg);font-size:.8rem;line-height:1}
+
+/* status + banners */
+.banner{display:none;margin:16px 0;background:var(--warn-soft);border:1px solid var(--warn);border-radius:10px;padding:10px 14px;font-size:.9rem}
+.error{margin-top:16px;background:var(--bad-soft);border:1px solid var(--bad);border-radius:10px;padding:12px 16px;display:none;font-size:.9rem}
+.chip{border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:.82rem;background:var(--card)}
+.chip.status-running{border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.chip.status-awaiting_gate{border-color:var(--warn);color:var(--warn);font-weight:600}
+.chip.status-done,.chip.status-stopped{border-color:var(--good);color:var(--good);font-weight:600}
+.chip.status-error{border-color:var(--bad);color:var(--bad);font-weight:600}
+.chip.verdict{font-weight:700}
+.statusrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+
+/* markdown rendering */
+.md{border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow:auto;background:var(--card)}
+.md :first-child{margin-top:0}
+.md :last-child{margin-bottom:0}
+.md blockquote{margin:8px 0;padding:6px 14px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:6px}
+.md pre{background:var(--accent-soft);border-radius:8px;padding:10px 12px;overflow:auto;font-size:.85rem}
+.md code{background:var(--accent-soft);border-radius:4px;padding:1px 5px;font-size:.88em}
+.md table{border-collapse:collapse}
+.md td,.md th{border:1px solid var(--line);padding:4px 8px;font-size:.88rem}
+details{margin-top:12px}
+details summary{cursor:pointer;color:var(--accent-ink);font-size:.88rem}
+details pre{white-space:pre-wrap;background:var(--accent-soft);border-radius:8px;padding:12px;font-size:.8rem;overflow:auto}
+
+/* card menus (learn / apps) */
+.menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;margin-top:18px}
+.menu-card{display:block;text-decoration:none;color:var(--ink);background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);transition:transform .12s ease,border-color .12s ease}
+.menu-card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.menu-card .t{font-weight:700;margin:0 0 6px}
+.menu-card .d{color:var(--muted);font-size:.85rem;margin:0}
+.menu-card .s{color:var(--muted);font-size:.76rem;margin:10px 0 0}
+
+/* footer */
+footer.site{border-top:1px solid var(--line);color:var(--muted);font-size:.82rem;padding:26px 0 40px;margin-top:30px}
+footer.site .wrap{display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between}
+footer.site a{color:var(--muted)}
+
+/* system-check beacon (diagnostics pill — app.js renders it into the header) */
+.diagwrap{position:relative}
+.diag{display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);border-radius:999px;padding:5px 12px 5px 9px;
+  font:600 .78rem/1 inherit;letter-spacing:.04em}
+.diag:hover{border-color:var(--accent)}
+.diag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.beacon{width:10px;height:10px;border-radius:50%;flex:none;background:var(--muted);
+  animation:breathe 3s ease-in-out infinite}
+.diag[data-state=go] .beacon{--bea:var(--good)}
+.diag[data-state=off] .beacon{--bea:var(--bad)}
+.diag[data-state=run] .beacon{--bea:var(--warn)}
+.diag[data-state=go] .beacon,.diag[data-state=off] .beacon,.diag[data-state=run] .beacon{background:var(--bea)}
+@keyframes breathe{
+  0%,100%{opacity:1;box-shadow:0 0 0 0 color-mix(in srgb,var(--bea) 45%,transparent)}
+  50%{opacity:.55;box-shadow:0 0 9px 3px color-mix(in srgb,var(--bea) 45%,transparent)}}
+@media (prefers-reduced-motion: reduce){.beacon{animation:none}}
+
+/* the results dropdown (scoped — .verdict/.spin/.chk class names exist elsewhere) */
+.diag-panel{display:none;position:absolute;right:0;top:calc(100% + 10px);
+  width:min(360px,calc(100vw - 32px));background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:14px 16px;text-align:left;
+  box-shadow:0 4px 10px rgba(16,24,40,.08),0 14px 34px rgba(16,24,40,.14)}
+.diag-panel.open{display:block}
+.diag-panel h3{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  display:flex;justify-content:space-between;align-items:center;margin:0}
+.diag-panel h3 button{all:unset;cursor:pointer;color:var(--muted);padding:0 2px;font-size:.95rem}
+.diag-panel h3 button:hover{color:var(--ink)}
+.diag-panel .chk{display:grid;grid-template-columns:20px 1fr auto;gap:8px;align-items:baseline;
+  padding:7px 0;border-bottom:1px dashed var(--line)}
+.diag-panel .chk:last-of-type{border-bottom:none}
+.diag-panel .chk .s{font-weight:700;text-align:center}
+.diag-panel .chk .s.pass{color:var(--good)}
+.diag-panel .chk .s.fail{color:var(--bad)}
+.diag-panel .chk .s.skip{color:var(--muted)}
+.diag-panel .chk .name b{font-weight:600;font-size:.9rem}
+.diag-panel .chk .name .why{display:block;color:var(--muted);font-size:.78rem}
+.diag-panel .chk .ms{font:600 .74rem/1.6 var(--font-mono);color:var(--muted);white-space:nowrap}
+.diag-panel .spin{width:11px;height:11px;margin:2px auto 0;border-radius:50%;
+  border:2px solid var(--line);border-top-color:var(--accent);animation:rot .7s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.diag-panel .verdict{margin-top:10px;border-radius:9px;padding:8px 12px;font-size:.85rem;font-weight:600}
+.diag-panel .verdict.go{background:var(--good-soft);color:var(--good)}
+.diag-panel .verdict.off{background:var(--bad-soft);color:var(--bad)}
+.diag-panel .verdict small{display:block;font-weight:400;color:var(--muted);font-size:.76rem;margin-top:1px}
+.diag-panel .ctx{margin-top:8px;font:.74rem/1.5 var(--font-mono);color:var(--muted)}

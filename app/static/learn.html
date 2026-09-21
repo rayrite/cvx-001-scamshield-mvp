@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning Center — ScamShield</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/udl.css">
+<link rel="stylesheet" href="/app.css">
+<script src="/udl.js"></script>
+<style>
+.count{color:var(--muted);font-size:.84rem}
+</style>
+</head>
+<body>
+<div id="sitenav"></div>
+
+<main class="wrap">
+  <div class="pagehead">
+    <h1>📚 Learning Center</h1>
+    <p>Research wikis — regulator-mapped catalogs of manipulation tactics and seller-side
+      fraud typologies. They open in this window inside the app frame and are themed by
+      the same centralized design language as every other page (/theme drives them too).</p>
+  </div>
+  <div class="menu-grid" id="grid"></div>
+  <p class="hint" id="empty" style="display:none">No wikis found — drop <code>.html</code> files into
+    the app's <code>content/wikis/</code> folder and reload.</p>
+</main>
+
+<div id="sitefooter"></div>
+
+<script src="/app.js"></script>
+<script>
+(async () => {
+  const data = await api("/api/wikis");
+  const items = data.wikis || [];
+  $("grid").innerHTML = items.map(w =>
+    `<a class="menu-card" href="${esc(w.url)}">
+       <p class="t">📖 ${esc(w.title)}</p>
+       <p class="d">Research wiki — opens in this window, inside the app frame.</p>
+       <p class="s">${esc(w.file)} · ${w.size_kb} KB</p>
+     </a>`).join("");
+  if (!items.length) $("empty").style.display = "block";
+})();
+</script>
+</body>
+</html>

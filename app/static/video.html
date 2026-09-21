@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Samples — ScamShield</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/udl.css">
+<link rel="stylesheet" href="/app.css">
+<script src="/udl.js"></script>
+<style>
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;margin-top:20px}
+.vcard{border:1px solid var(--line);background:var(--card);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:10px}
+.vframe{position:relative;aspect-ratio:16/9;background:#000;border-radius:calc(var(--radius) - 6px);overflow:hidden}
+.vframe video{width:100%;height:100%;display:block}
+.missing{position:absolute;inset:0;display:flex;flex-direction:column;gap:8px;align-items:center;
+  justify-content:center;text-align:center;padding:18px;background:var(--card)}
+.missing b{font-family:var(--font-mono);font-size:.85rem;color:var(--ink);word-break:break-all}
+.missing span{font-size:.8rem;color:var(--muted);max-width:34ch}
+.vmeta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.vname{font-family:var(--font-mono);font-size:.78rem;color:var(--accent-ink);
+  background:var(--accent-soft);border:1px solid var(--line);padding:2px 10px;border-radius:999px}
+.vstate{font-size:.8rem;color:var(--muted)}
+.vstate.ok{color:var(--good)}
+.vstate.warn{color:var(--warn)}
+</style>
+</head>
+<body>
+<div id="sitenav"></div>
+
+<main class="wrap">
+  <div class="pagehead">
+    <h1>Video samples</h1>
+    <p>Two MP4 players streamed straight from the service volume with HTTP Range —
+      seek anywhere on the timeline and the browser fetches just that slice
+      (<code>206 Partial Content</code>). Layout and theme follow the central
+      <a href="/theme">UDL config</a> like every other page.</p>
+  </div>
+
+  <div class="vgrid" id="vgrid"></div>
+
+  <p class="hint">Placeholders expect <code>demo1.mp4</code> and <code>demo2.mp4</code> in the
+    volume's <code>videos/</code> folder — <code>app/data/videos/</code> locally,
+    <code>/data/videos/</code> on Railway (upload with
+    <code>railway volume files upload &lt;file&gt; /videos/&lt;file&gt;</code>).
+    Files must be browser-ready MP4: H.264 + AAC with faststart — see
+    <code>docs/VIDEO-HOSTING-RAILWAY.md</code>.</p>
+</main>
+
+<div id="sitefooter"></div>
+
+<script src="/app.js"></script>
+<script>
+/* Two placeholder players. Each is probed with a 1-byte Range request:
+   206 + content-range ⇒ the file is there (size read from the header);
+   404 ⇒ keep the placeholder overlay. A decode error after a successful
+   probe means the file exists but isn't browser-playable (codec). */
+const VIDEOS = [
+  {file: "demo1.mp4", label: "Sample one"},
+  {file: "demo2.mp4", label: "Sample two"},
+];
+
+$("vgrid").innerHTML = VIDEOS.map((v, i) => `
+  <section class="vcard">
+    <div class="vframe">
+      <video id="v${i}" controls preload="metadata" playsinline>
+        <source src="/videos/${esc(v.file)}" type="video/mp4">
+      </video>
+      <div class="missing" id="m${i}">
+        <b>/videos/${esc(v.file)}</b>
+        <span>placeholder — put this file in the volume's videos/ folder and refresh</span>
+      </div>
+    </div>
+    <div class="vmeta">
+      <span class="vname">${esc(v.label)} · ${esc(v.file)}</span>
+      <span class="vstate" id="s${i}">checking…</span>
+    </div>
+  </section>`).join("");
+
+VIDEOS.forEach(async (v, i) => {
+  const state = $("s" + i);
+  let found = false;
+  try {
+    const r = await fetch("/videos/" + v.file, {headers: {Range: "bytes=0-0"}});
+    const total = Number((r.headers.get("content-range") || "").split("/")[1]);
+    if (r.status === 206 && total > 0) {
+      found = true;
+      $("m" + i).style.display = "none";
+      state.textContent = "streaming · 206 partial content · " +
+        (total / 1048576).toFixed(1) + " MB";
+      state.className = "vstate ok";
+    } else {
+      throw new Error("HTTP " + r.status);
+    }
+  } catch {
+    state.textContent = "not found — placeholder";
+    state.className = "vstate";
+  }
+  $("v" + i).addEventListener("error", () => {
+    if (!found) return;   // 404 already reported by the probe
+    state.textContent = "file found but won't decode — re-encode (H.264 + AAC, faststart)";
+    state.className = "vstate warn";
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+.env
+.venv/
+data/
+demo-server.log
+__pycache__/

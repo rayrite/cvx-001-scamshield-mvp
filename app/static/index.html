@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ScamShield — deep-research checks for scams, recalls & dark patterns</title>
+<meta name="description" content="ScamShield runs staged, source-cited background checks on stores, emails, products, recalls, and companies — with verdict, confidence, and ripeness kept independent.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/udl.css">
+<link rel="stylesheet" href="/app.css">
+<script src="/udl.js"></script>
+<style>
+/* landing-specific styling only — all color comes from the UDL vars */
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:36px;align-items:center;padding:44px 0 10px}
+.hero h1{font-size:2.35rem;line-height:1.15;margin:0 0 14px;letter-spacing:-.5px}
+.hero .sub{font-size:1.06rem;color:var(--muted);margin:0 0 22px;max-width:34em}
+.hero .ctas{display:flex;gap:12px;flex-wrap:wrap}
+.hero .trust{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.kicker{display:inline-block;font-size:.76rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--accent-ink);background:var(--accent-soft);border-radius:999px;padding:5px 13px;margin-bottom:14px}
+@media (max-width:860px){.hero{grid-template-columns:1fr}}
+
+/* carousel */
+.carousel{position:relative;background:var(--card);border:1px solid var(--line);border-radius:22px;
+  box-shadow:var(--shadow);padding:14px}
+.carousel .viewport{position:relative;overflow:hidden;border-radius:14px;background:var(--bg)}
+.slides{display:flex;transition:transform .45s ease}
+.slide{flex:0 0 100%;display:flex;justify-content:center;padding:12px 0}
+.slide svg{width:230px;height:auto;display:block}
+.carousel .cap{text-align:center;color:var(--muted);font-size:.85rem;padding:10px 8px 2px;min-height:2.4em}
+.cnav{display:flex;align-items:center;justify-content:center;gap:14px;padding-top:8px}
+.cnav button{background:var(--card);border:1px solid var(--line);border-radius:999px;width:34px;height:34px;
+  color:var(--ink);font-size:1rem;line-height:1}
+.cnav button:hover{border-color:var(--accent)}
+.dots{display:flex;gap:7px}
+.dots button{width:9px;height:9px;border-radius:50%;border:none;background:var(--line);padding:0}
+.dots button.on{background:var(--accent)}
+
+/* sections */
+section.band{padding:40px 0 6px}
+section.band>h2{font-size:1.5rem;margin:0 0 6px;letter-spacing:-.3px}
+section.band>.lede{color:var(--muted);margin:0 0 22px;max-width:46em}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.feat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.feat .ico{font-size:1.5rem}
+.feat h3{margin:10px 0 6px;font-size:1.02rem}
+.feat p{margin:0;color:var(--muted);font-size:.9rem}
+.feat a{display:inline-block;margin-top:10px;font-size:.88rem}
+
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;counter-reset:step}
+.step{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;position:relative}
+.step::before{counter-increment:step;content:counter(step);position:absolute;top:-11px;left:14px;background:var(--accent);
+  color:#fff;font-size:.72rem;font-weight:700;border-radius:999px;padding:2px 9px}
+.step h4{margin:6px 0 4px;font-size:.95rem}
+.step p{margin:0;color:var(--muted);font-size:.85rem}
+
+.quotes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.quote{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+.quote .stars{color:var(--warn);letter-spacing:2px;font-size:.9rem}
+.quote blockquote{margin:10px 0 12px;font-size:.93rem}
+.quote .who{color:var(--muted);font-size:.83rem}
+.illus{font-size:.75rem;color:var(--muted);background:var(--accent-soft);border-radius:999px;padding:2px 10px;display:inline-block;margin-top:8px}
+
+.waitlist{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:30px;display:grid;grid-template-columns:1.2fr .8fr;gap:24px;align-items:center;margin-top:8px}
+@media (max-width:860px){.waitlist{grid-template-columns:1fr}}
+.waitlist h2{margin:0 0 8px;font-size:1.3rem}
+.waitlist p{margin:0;color:var(--muted);font-size:.92rem}
+.wl-form{display:flex;gap:10px;flex-wrap:wrap}
+.wl-form input{flex:1;min-width:210px}
+.wl-msg{font-size:.85rem;margin-top:10px;min-height:1.2em}
+.wl-msg.ok{color:var(--good)} .wl-msg.err{color:var(--bad)}
+</style>
+</head>
+<body>
+<div id="sitenav"></div>
+
+<main>
+<!-- ================================================================ hero -->
+<div class="wrap hero">
+  <div>
+    <span class="kicker">Consumer-protection research agent</span>
+    <h1>Before you click buy, get a real background check.</h1>
+    <p class="sub">ScamShield runs staged, source-cited research on stores, suspicious emails, products,
+      recalls, and companies — powered by z.ai GLM models with live web search. Every answer carries
+      a <b>verdict</b>, a <b>confidence level</b>, and a <b>ripeness</b> reading as three independent
+      indicators, and favorable findings are reported the same as adverse ones.</p>
+    <div class="ctas">
+      <a class="btn" href="/check" style="text-decoration:none;display:inline-block">Start a check</a>
+      <a class="btn ghost" href="/chat" style="text-decoration:none;display:inline-block">Chat with a research skill</a>
+    </div>
+    <div class="trust">
+      <span class="chip">glm-5.3 staged reasoning</span>
+      <span class="chip">web-search citations</span>
+      <span class="chip">human gates at every stage</span>
+      <span class="chip">balanced by mandate</span>
+    </div>
+  </div>
+
+  <!-- carousel: phone mockups drawn inline (no external screenshots to ship) -->
+  <div class="carousel" id="carousel" aria-roledescription="carousel" aria-label="App screens">
+    <div class="viewport"><div class="slides" id="slides">
+
+      <div class="slide" role="group" aria-label="Staged check with gate buttons">
+        <svg viewBox="0 0 240 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Staged check screen">
+          <rect x="4" y="4" width="232" height="462" rx="30" fill="var(--card)" stroke="var(--line)" stroke-width="2"/>
+          <rect x="90" y="14" width="60" height="12" rx="6" fill="var(--line)"/>
+          <rect x="18" y="38" width="204" height="26" rx="8" fill="var(--accent-soft)"/>
+          <text x="28" y="55" font-size="11" fill="var(--accent-ink)" font-family="monospace">🛡️ ScamShield — Check</text>
+          <rect x="18" y="74" width="204" height="52" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+          <text x="28" y="92" font-size="8" fill="var(--muted)">is dealznike-outlet.shop legit?</text>
+          <text x="28" y="106" font-size="8" fill="var(--muted)">Instagram ad — Jordans 80% off</text>
+          <rect x="18" y="134" width="204" height="18" rx="9" fill="var(--warn-soft)"/>
+          <text x="26" y="147" font-size="9" fill="var(--warn)">awaiting gate</text>
+          <rect x="140" y="134" width="82" height="18" rx="9" fill="var(--accent-soft)"/>
+          <text x="148" y="147" font-size="8" fill="var(--accent-ink)">calls 4 · src 38</text>
+          <g font-size="8" fill="var(--ink)">
+            <circle cx="24" cy="172" r="3.5" fill="var(--good)"/><text x="34" y="175">Intake — transcript ✓</text>
+            <circle cx="24" cy="190" r="3.5" fill="var(--good)"/><text x="34" y="193">Smoke test ✓</text>
+            <circle cx="24" cy="208" r="3.5" fill="var(--good)"/><text x="34" y="211">Triage sweep ✓</text>
+            <circle cx="24" cy="226" r="3.5" fill="var(--accent)"/><text x="34" y="229">Verify — running…</text>
+          </g>
+          <rect x="18" y="242" width="204" height="128" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+          <rect x="26" y="250" width="188" height="40" rx="6" fill="var(--accent-soft)"/>
+          <text x="34" y="266" font-size="8" fill="var(--ink)">Domain registered 12 days ago…</text>
+          <text x="34" y="278" font-size="8" fill="var(--ink)">No business record found…</text>
+          <g>
+            <rect x="26" y="296" width="86" height="16" rx="8" fill="var(--accent)"/><text x="38" y="307" font-size="8" fill="#fff">▶ Go — verify</text>
+            <rect x="118" y="296" width="96" height="16" rx="8" fill="var(--card)" stroke="var(--line)"/><text x="128" y="307" font-size="8" fill="var(--ink)">■ Stop — finish</text>
+            <rect x="26" y="318" width="188" height="16" rx="8" fill="var(--card)" stroke="var(--line)"/><text x="36" y="329" font-size="8" fill="var(--muted)">↪ redirect the research…</text>
+          </g>
+          <rect x="18" y="382" width="204" height="66" rx="10" fill="var(--bad-soft)"/>
+          <text x="28" y="402" font-size="9" fill="var(--bad)" font-weight="bold">⚠ VERDICT: 🔴 Scam pattern match</text>
+          <text x="28" y="418" font-size="8" fill="var(--ink)">High confidence (provisional)</text>
+          <text x="28" y="432" font-size="8" fill="var(--muted)">Ripeness: LOW — closed by observation</text>
+        </svg>
+      </div>
+
+      <div class="slide" role="group" aria-label="Chat with a research skill">
+        <svg viewBox="0 0 240 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Skill chat screen">
+          <rect x="4" y="4" width="232" height="462" rx="30" fill="var(--card)" stroke="var(--line)" stroke-width="2"/>
+          <rect x="90" y="14" width="60" height="12" rx="6" fill="var(--line)"/>
+          <rect x="18" y="38" width="204" height="26" rx="8" fill="var(--accent-soft)"/>
+          <text x="28" y="55" font-size="11" fill="var(--accent-ink)" font-family="monospace">💬 Skill chat — CorpCheck</text>
+          <rect x="18" y="74" width="150" height="34" rx="12" fill="var(--bg)" stroke="var(--line)"/>
+          <text x="28" y="90" font-size="8" fill="var(--ink)">any complaints about</text>
+          <text x="28" y="101" font-size="8" fill="var(--ink)">BrightCart Ltd?</text>
+          <rect x="72" y="116" width="150" height="150" rx="12" fill="var(--accent-soft)"/>
+          <text x="82" y="132" font-size="8" fill="var(--ink)" font-weight="bold">Stage 1 — Triage sweep</text>
+          <text x="82" y="146" font-size="7.5" fill="var(--ink)">10 searches · 3 adverse, 2 favorable</text>
+          <rect x="82" y="154" width="130" height="34" rx="5" fill="var(--card)"/>
+          <text x="88" y="166" font-size="7" fill="var(--muted)">🟡 Mixed record — Medium conf.</text>
+          <text x="88" y="177" font-size="7" fill="var(--muted)">Ripeness: MEDIUM (provisional)</text>
+          <text x="82" y="200" font-size="7.5" fill="var(--ink)">Favorable: 4.4★ store rating (12k)</text>
+          <text x="82" y="212" font-size="7.5" fill="var(--ink)">Adverse: 2024 FTC dark-pattern NOI</text>
+          <text x="82" y="224" font-size="7.5" fill="var(--ink)">No resolution yet — balance kept</text>
+          <text x="82" y="246" font-size="7.5" fill="var(--accent-ink)" font-weight="bold">Next: reply go / redirect / stop</text>
+          <rect x="18" y="276" width="150" height="24" rx="12" fill="var(--bg)" stroke="var(--line)"/>
+          <text x="28" y="291" font-size="8" fill="var(--ink)">go — verify the FTC action</text>
+          <rect x="72" y="308" width="150" height="120" rx="12" fill="var(--accent-soft)"/>
+          <text x="82" y="324" font-size="8" fill="var(--ink)" font-weight="bold">Stage 2 — Verify</text>
+          <text x="82" y="338" font-size="7.5" fill="var(--ink)">Confirmed: FTC NOI 2024-06-11,</text>
+          <text x="82" y="350" font-size="7.5" fill="var(--ink)">subscription dark patterns,</text>
+          <text x="82" y="362" font-size="7.5" fill="var(--ink)">closed 2025-03 (no admission).</text>
+          <text x="82" y="378" font-size="7.5" fill="var(--ink)">Verdict 🟡 · High conf. · final</text>
+          <text x="82" y="390" font-size="7.5" fill="var(--muted)">Ripeness: LOW</text>
+          <text x="82" y="408" font-size="7.5" fill="var(--accent-ink)" font-weight="bold">Next: stop to consolidate</text>
+          <rect x="18" y="436" width="204" height="20" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+          <text x="28" y="449" font-size="8" fill="var(--muted)">Reply to drive the research…</text>
+        </svg>
+      </div>
+
+      <div class="slide" role="group" aria-label="Quick single-pass check">
+        <svg viewBox="0 0 240 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Quick check screen">
+          <rect x="4" y="4" width="232" height="462" rx="30" fill="var(--card)" stroke="var(--line)" stroke-width="2"/>
+          <rect x="90" y="14" width="60" height="12" rx="6" fill="var(--line)"/>
+          <rect x="18" y="38" width="204" height="26" rx="8" fill="var(--accent-soft)"/>
+          <text x="28" y="55" font-size="11" fill="var(--accent-ink)" font-family="monospace">⚡ Quick — one-pass check</text>
+          <rect x="18" y="74" width="204" height="40" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+          <text x="28" y="90" font-size="8" fill="var(--muted)">screenshot of "USPS redelivery fee"</text>
+          <text x="28" y="102" font-size="8" fill="var(--muted)">email + one-line question</text>
+          <rect x="18" y="124" width="60" height="18" rx="9" fill="var(--accent-soft)"/>
+          <text x="26" y="137" font-size="8" fill="var(--accent-ink)">analyzing…</text>
+          <rect x="18" y="154" width="204" height="200" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+          <rect x="26" y="162" width="188" height="30" rx="6" fill="var(--bad-soft)"/>
+          <text x="34" y="181" font-size="9" fill="var(--bad)" font-weight="bold">Verdict: 🔴 Scam pattern match</text>
+          <rect x="26" y="198" width="188" height="22" rx="6" fill="var(--card)"/>
+          <text x="34" y="213" font-size="8" fill="var(--ink)">Confidence: High</text>
+          <rect x="26" y="226" width="188" height="22" rx="6" fill="var(--card)"/>
+          <text x="34" y="241" font-size="8" fill="var(--ink)">Ripeness: LOW — direct observation</text>
+          <g font-size="7.5" fill="var(--ink)">
+            <text x="34" y="262">· sender domain 6 days old</text>
+            <text x="34" y="276">· fee demanded off-platform</text>
+            <text x="34" y="290">· USPS never texts fees</text>
+          </g>
+          <text x="34" y="316" font-size="7.5" fill="var(--muted)">4 sources cited, dated</text>
+          <rect x="18" y="366" width="204" height="24" rx="12" fill="var(--good-soft)"/>
+          <text x="26" y="382" font-size="8" fill="var(--good)">✓ done in one pass — ~90 seconds</text>
+          <text x="18" y="412" font-size="8" fill="var(--muted)">Three indicators. Always separate.</text>
+        </svg>
+      </div>
+
+      <div class="slide" role="group" aria-label="Learning center">
+        <svg viewBox="0 0 240 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Learning center screen">
+          <rect x="4" y="4" width="232" height="462" rx="30" fill="var(--card)" stroke="var(--line)" stroke-width="2"/>
+          <rect x="90" y="14" width="60" height="12" rx="6" fill="var(--line)"/>
+          <rect x="18" y="38" width="204" height="26" rx="8" fill="var(--accent-soft)"/>
+          <text x="28" y="55" font-size="11" fill="var(--accent-ink)" font-family="monospace">📚 Learning Center</text>
+          <rect x="18" y="76" width="204" height="66" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+          <text x="28" y="96" font-size="9" fill="var(--ink)" font-weight="bold">US Consumer Dark Patterns</text>
+          <text x="28" y="110" font-size="7.5" fill="var(--muted)">61 tactics · regulators · spotting guides</text>
+          <text x="28" y="124" font-size="7.5" fill="var(--muted)">346 KB · static wiki</text>
+          <rect x="18" y="150" width="204" height="66" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+          <text x="28" y="170" font-size="9" fill="var(--ink)" font-weight="bold">E-commerce Seller Scam Wiki</text>
+          <text x="28" y="184" font-size="7.5" fill="var(--muted)">seller-side fraud typologies</text>
+          <text x="28" y="198" font-size="7.5" fill="var(--muted)">209 KB · static wiki</text>
+          <rect x="18" y="226" width="204" height="66" rx="10" fill="var(--accent-soft)"/>
+          <text x="28" y="246" font-size="9" fill="var(--accent-ink)" font-weight="bold">Full-Spectrum Scanner (SPA)</text>
+          <text x="28" y="260" font-size="7.5" fill="var(--muted)">practice tool — 12 scam families</text>
+          <text x="28" y="274" font-size="7.5" fill="var(--muted)">runs fully in your browser</text>
+          <g font-size="7.5" fill="var(--muted)">
+            <text x="18" y="316">Read first, then run checks —</text>
+            <text x="18" y="330">recognition beats reaction.</text>
+          </g>
+          <rect x="18" y="350" width="204" height="30" rx="10" fill="var(--good-soft)"/>
+          <text x="26" y="369" font-size="8" fill="var(--good)">✓ no account · nothing tracked</text>
+        </svg>
+      </div>
+
+    </div></div>
+    <div class="cap" id="cap">Staged checks with human gates — you approve every research stage</div>
+    <div class="cnav">
+      <button id="prev" aria-label="Previous slide">‹</button>
+      <div class="dots" id="dots"></div>
+      <button id="next" aria-label="Next slide">›</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ features -->
+<div class="wrap"><section class="band" id="features">
+  <h2>One research bench, six surfaces</h2>
+  <p class="lede">Everything is demo-first: the app runs end-to-end with canned, honestly-labeled
+    responses until a <code>ZAI_API_KEY</code> is configured — then the same flows call z.ai GLM models
+    with live web search.</p>
+  <div class="feat-grid">
+    <div class="feat" data-flag="check"><div class="ico">🛡️</div><h3>Staged Check</h3>
+      <p>The full rdw-scamshield-check-v2 skill as a state machine: vision intake, snap smoke test, triage, verify — with your approval at every gate.</p>
+      <a href="/check">Open Check →</a></div>
+    <div class="feat" data-flag="chat"><div class="ico">💬</div><h3>Skill Chat</h3>
+      <p>Three research skills (ProductDig, RecallCheck v2, TEA2 CorpCheck) as multi-turn chats — the skills' native operating mode, one stage per reply.</p>
+      <a href="/chat">Open Chat →</a></div>
+    <div class="feat" data-flag="quick"><div class="ico">⚡</div><h3>Quick Research</h3>
+      <p>Paste-ready single-pass checks for stores, recalls, companies, and products — verdict, confidence, and ripeness in ~90 seconds.</p>
+      <a href="/quick">Open Quick →</a></div>
+    <div class="feat" data-flag="learning"><div class="ico">📚</div><h3>Learning Center</h3>
+      <p>Static research wikis on dark patterns and seller-side scams — regulator-mapped tactic catalogs you can read without an account.</p>
+      <a href="/learn">Open Learn →</a></div>
+    <div class="feat" data-flag="apps"><div class="ico">🧩</div><h3>App Library</h3>
+      <p>A dynamic menu of single-page apps dropped into a shared folder — add or remove an HTML file and the menu updates itself.</p>
+      <a href="/apps">Open Apps →</a></div>
+    <div class="feat"><div class="ico">🎨</div><h3>Universal Design Language</h3>
+      <p>One udl.json config themes every page — colors, fonts, radius, shadow, light/dark. Light adjustments, centrally controlled.</p>
+      <a href="/theme">Open Theme →</a></div>
+  </div>
+</section></div>
+
+<!-- ========================================================= how it works -->
+<div class="wrap"><section class="band">
+  <h2>How a check runs</h2>
+  <p class="lede">The agent never free-wheels: the skill defines the stages, the gauges say when to stop, and you hold the gates.</p>
+  <div class="steps">
+    <div class="step"><h4>Describe or show</h4><p>Paste the email, listing, or company name — or attach screenshots (transcribed verbatim, defanged).</p></div>
+    <div class="step"><h4>Snap test</h4><p>A zero-search pass catches decisive tells instantly — real smishing closes in seconds, no sweep needed.</p></div>
+    <div class="step"><h4>Staged sweep</h4><p>Triage across regulator, press, court, and registry sources — with citations and dates, favorable findings included.</p></div>
+    <div class="step"><h4>Your call</h4><p>Approve the next stage, redirect the research, or consolidate. The final report keeps verdict, confidence, and ripeness separate.</p></div>
+  </div>
+</section></div>
+
+<!-- ========================================================= testimonials -->
+<div class="wrap"><section class="band">
+  <h2>What people say</h2>
+  <p class="lede">Illustrative voices for the demo — shaped like the feedback the tool is built for, not real quotes.</p>
+  <div class="quotes">
+    <div class="quote"><div class="stars">★★★★★</div>
+      <blockquote>"The gate buttons are the whole thing for me. It found the registry age and the missing business record — but I decided when to stop digging."</blockquote>
+      <div class="who">— marketplace seller (illustrative)</div>
+      <span class="illus">sample testimonial — not a real user</span></div>
+    <div class="quote"><div class="stars">★★★★☆</div>
+      <blockquote>"It told me my 'too good' find had a genuinely clean record — favorable findings included. That's when I trusted the red flags elsewhere."</blockquote>
+      <div class="who">— online shopper (illustrative)</div>
+      <span class="illus">sample testimonial — not a real user</span></div>
+    <div class="quote"><div class="stars">★★★★★</div>
+      <blockquote>"Verdict, confidence, and ripeness kept separate stopped me from treating a 'Medium confidence' as a maybe-safe. The indicators mean different things."</blockquote>
+      <div class="who">— clinic educator (illustrative)</div>
+      <span class="illus">sample testimonial — not a real user</span></div>
+  </div>
+</section></div>
+
+<!-- ============================================================= waitlist -->
+<div class="wrap"><section class="band" id="waitlist">
+  <div class="waitlist">
+    <div>
+      <h2>Want the hosted version?</h2>
+      <p>Leave an email and we'll notify you when the public service opens. One line per address in a
+        flat file — no accounts, no trackers, no third-party mailer.</p>
+    </div>
+    <div>
+      <form class="wl-form" id="wlForm">
+        <input type="email" id="wlEmail" placeholder="you@example.com" autocomplete="email" required>
+        <button class="btn" id="wlBtn" type="submit">Join waitlist</button>
+      </form>
+      <div class="wl-msg" id="wlMsg"></div>
+    </div>
+  </div>
+</section></div>
+</main>
+
+<div id="sitefooter"></div>
+
+<script src="/app.js"></script>
+<script>
+// --- carousel: auto-rotate 4s, pause on hover, dots + prev/next ----------------
+const CAPS = [
+  "Staged checks with human gates — you approve every research stage",
+  "Skill chat — reply go / redirect / stop to drive each stage",
+  "Quick checks — one pass, three independent indicators",
+  "Learning Center + practice apps — read first, recognize faster",
+];
+const slidesEl = $("slides"), dotsEl = $("dots"), capEl = $("cap");
+const N = slidesEl.children.length;
+let cur = 0, timer = null;
+for (let i = 0; i < N; i++) {
+  const b = document.createElement("button");
+  b.setAttribute("aria-label", "Slide " + (i + 1));
+  b.addEventListener("click", () => go(i, true));
+  dotsEl.appendChild(b);
+}
+function go(i, manual){
+  cur = (i + N) % N;
+  slidesEl.style.transform = `translateX(-${cur * 100}%)`;
+  [...dotsEl.children].forEach((d, k) => d.classList.toggle("on", k === cur));
+  capEl.textContent = CAPS[cur] || "";
+  if (manual) restart();
+}
+function restart(){ clearInterval(timer); timer = setInterval(() => go(cur + 1), 4000); }
+$("prev").addEventListener("click", () => go(cur - 1, true));
+$("next").addEventListener("click", () => go(cur + 1, true));
+const carousel = $("carousel");
+carousel.addEventListener("mouseenter", () => clearInterval(timer));
+carousel.addEventListener("mouseleave", restart);
+// keyboard + reduced-motion respect
+carousel.setAttribute("tabindex", "0");
+carousel.addEventListener("keydown", e => {
+  if (e.key === "ArrowLeft") go(cur - 1, true);
+  if (e.key === "ArrowRight") go(cur + 1, true);
+});
+if (!matchMedia("(prefers-reduced-motion: reduce)").matches) restart();
+go(0);
+
+// --- waitlist ------------------------------------------------------------------
+$("wlForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg = $("wlMsg");
+  msg.className = "wl-msg";
+  msg.textContent = "…";
+  $("wlBtn").disabled = true;
+  try {
+    const data = await api("/api/waitlist", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({email: $("wlEmail").value.trim()}),
+    });
+    msg.className = "wl-msg ok";
+    msg.textContent = data.already
+      ? `✓ You're already on the list — ${data.count} ${data.count === 1 ? "person" : "people"} total.`
+      : `✓ Added — you're #${data.count} on the list.`;
+    $("wlEmail").value = "";
+  } catch (err) {
+    msg.className = "wl-msg err";
+    msg.textContent = "✖ " + err.message;
+  } finally {
+    $("wlBtn").disabled = false;
+  }
+});
+
+// --- hide feature cards whose flag is off ---------------------------------------
+(async () => {
+  try {
+    const eff = (await api("/api/features")).effective;
+    document.querySelectorAll("[data-flag]").forEach(el => {
+      if (eff[el.dataset.flag] === false) el.style.display = "none";
+    });
+  } catch { /* show all */ }
+})();
+</script>
+</body>
+</html>

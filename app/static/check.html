@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Staged Check — ScamShield</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/udl.css">
+<link rel="stylesheet" href="/app.css">
+<script src="/udl.js"></script>
+<style>
+/* page-specific: everything not in the shared chrome */
+.timeline{margin:0 0 16px;padding:0;list-style:none}
+.timeline li{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px dashed var(--line);font-size:.9rem}
+.timeline .dot{width:9px;height:9px;border-radius:50%;background:var(--good);flex:none;transform:translateY(-1px)}
+.timeline .meta{color:var(--muted);font-size:.8rem;margin-left:auto;white-space:nowrap}
+#job{display:none;margin-top:22px}
+.gate{margin-top:16px;border:1px solid var(--warn);background:var(--warn-soft);border-radius:12px;padding:14px 16px}
+.gate p{margin:0 0 10px;font-size:.9rem}
+.gate .btns{display:flex;gap:10px;flex-wrap:wrap}
+.gate button.primary{background:var(--accent);color:#fff;border:none;padding:9px 16px;font-weight:600}
+.gate button.secondary{background:var(--card);color:var(--ink);border:1px solid var(--line);padding:9px 16px}
+.gate textarea{min-height:56px;margin-top:10px}
+.gate .pushback{margin:0 0 10px;font-size:.84rem;color:var(--warn)}
+.recent{margin-top:26px}
+.recent h2{font-size:.9rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.recent ul{list-style:none;margin:8px 0 0;padding:0}
+.recent li{padding:6px 0;border-bottom:1px dashed var(--line);font-size:.86rem;display:flex;gap:10px;cursor:pointer}
+.recent li:hover .subj{color:var(--accent-ink)}
+.recent .st{color:var(--muted);min-width:110px}
+.rawlink{font-size:.84rem;color:var(--accent-ink)}
+textarea{min-height:96px}
+select{width:auto}
+</style>
+</head>
+<body>
+<div id="sitenav"></div>
+
+<main class="wrap">
+  <div class="pagehead">
+    <h1>Staged background check</h1>
+    <p>rdw-scamshield-check-v2 as a hosted staged service · vision intake (<code>glm-5.3-flash</code>) → staged reasoning with built-in web search (<code>glm-5.3</code>) · gates as buttons</p>
+  </div>
+
+  <div class="panel">
+    <textarea id="text" placeholder='The subject of the background check — e.g. "is dealznike-outlet.shop legit? saw their ad on Instagram — Jordans 80% off" or paste the suspicious email verbatim.'></textarea>
+    <div class="row">
+      <label class="file">📷 Attach screenshot(s)
+        <input id="files" type="file" accept="image/png,image/jpeg,image/jpg" multiple>
+      </label>
+      <select id="worry" title="what worries you — sets check-line relevance">
+        <option value="legitimacy">Is it legit overall?</option>
+        <option value="counterfeit">Counterfeit / fake goods</option>
+        <option value="non-delivery">Order never arrived</option>
+        <option value="payment-safety">Payment / checkout safety</option>
+      </select>
+      <button class="btn" id="run" style="margin-left:auto">Start check</button>
+    </div>
+    <div class="thumbs" id="thumbs"></div>
+    <p class="hint">Runs the staged skill: screenshot transcription → zero-search smoke test (decisive tells snap to an instant verdict) → Stage-1 triage sweep → your call at every gate. Research stages run 1–5 minutes each. Screenshots are downscaled in your browser before sending.</p>
+  </div>
+
+  <div class="banner" id="demoBanner">⚠️ <b>Demo mode</b> — no <code>ZAI_API_KEY</code> configured, so this walks a canned USPS-email example through the same staged flow and gates.</div>
+  <div class="error" id="error"></div>
+
+  <section id="job">
+    <div class="panel">
+      <div class="statusrow" id="statusrow"></div>
+      <ul class="timeline" id="timeline"></ul>
+      <div class="md" id="content"></div>
+      <details id="transcriptBox" style="display:none">
+        <summary>Vision intake — verbatim transcription (defanged)</summary>
+        <pre id="transcript"></pre>
+      </details>
+      <div class="gate" id="gate" style="display:none"></div>
+      <p class="rawlink" id="rawlink" style="display:none"></p>
+    </div>
+  </section>
+
+  <section class="recent" id="recentSec">
+    <h2>Recent checks</h2>
+    <ul id="recent"></ul>
+  </section>
+</main>
+
+<div id="sitefooter"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js" integrity="sha384-JEyTNhjM6R1ElGoJns4U2Ln4ofPcqzSsynQkmEc/KGy6336qAZl70tDLufbkla+3" crossorigin="anonymous"></script>
+<script src="/app.js"></script>
+<script>
+let images = [];
+let pollTimer = null;
+let currentId = localStorage.getItem("ss2_job") || null;
+
+$("files").addEventListener("change", async e => {
+  const added = await readImages(e.target.files, 5 - images.length);
+  images = images.concat(added);
+  e.target.value = "";
+  renderThumbs();
+});
+function renderThumbs(){
+  $("thumbs").innerHTML = "";
+  images.forEach((src, i) => {
+    const d = document.createElement("div"); d.className = "thumb";
+    const img = document.createElement("img"); img.src = src;
+    const x = document.createElement("button"); x.textContent = "×"; x.title = "remove";
+    x.onclick = () => { images.splice(i, 1); renderThumbs(); };
+    d.append(img, x); $("thumbs").appendChild(d);
+  });
+}
+
+$("run").addEventListener("click", async () => {
+  const text = $("text").value.trim();
+  if (!text && !images.length) { $("text").focus(); return; }
+  $("run").disabled = true;
+  $("error").style.display = "none";
+  try {
+    const data = await api("/api/jobs", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({text, images, worry: $("worry").value, region: "US"}),
+    });
+    currentId = data.id;
+    localStorage.setItem("ss2_job", currentId);
+    poll(true);
+  } catch (err) {
+    $("error").textContent = "✖ " + err.message;
+    $("error").style.display = "block";
+  } finally {
+    $("run").disabled = false;
+  }
+});
+
+const GATE_LABELS = {
+  go:       ["▶ Go — run the default plan", "primary"],
+  document: ["🗂 Document — archived report", "primary"],
+  stop:     ["■ Stop — consolidate & finish", "secondary"],
+};
+
+function poll(immediate){
+  clearTimeout(pollTimer);
+  const tick = async () => {
+    if (!currentId) return;
+    try {
+      const resp = await fetch("/api/jobs/" + currentId);
+      if (resp.ok) render(await resp.json());
+    } catch { /* transient — keep polling */ }
+    pollTimer = setTimeout(tick, 2000);
+  };
+  if (immediate) tick(); else pollTimer = setTimeout(tick, 2000);
+}
+
+function render(job){
+  $("job").style.display = "block";
+  $("demoBanner").style.display = job.demo ? "block" : "none";
+
+  const chips = [`<span class="chip status-${job.status}">${esc(job.status.replace("_", " "))}</span>`];
+  if (job.demo) chips.push('<span class="chip">demo</span>');
+  const v = (job.verdict_history || []).slice(-1)[0];
+  if (v) chips.push(`<span class="chip verdict">${esc(v.verdict)} · ${esc(v.confidence)}${v.label ? " · " + esc(v.label) : ""}</span>`);
+  chips.push(`<span class="chip">calls ${job.budget.model_calls} · searches ${job.budget.search_results}</span>`);
+  $("statusrow").innerHTML = chips.join("");
+
+  $("timeline").innerHTML = (job.stage_log || []).map(e =>
+    `<li><span class="dot"></span><span>${esc(e.stage_label)}</span>` +
+    `<span class="meta">${esc(e.model)}${e.search_results ? " · " + e.search_results + " results" : ""}${e.elapsed_s ? " · " + e.elapsed_s + "s" : ""}</span></li>`
+  ).join("") + (job.transcript ? '<li><span class="dot"></span><span>Stage 1 — Vision intake (glm-5.3-flash)</span><span class="meta">transcript ready</span></li>' : "");
+
+  const last = (job.stage_log || []).slice(-1)[0];
+  if (job.status === "done" && job.report) $("content").innerHTML = md(job.report);
+  else if (last) $("content").innerHTML = md(last.content);
+  else $("content").innerHTML = "<p>Starting…</p>";
+
+  if (job.transcript) {
+    $("transcript").textContent = job.transcript;
+    $("transcriptBox").style.display = "";
+  }
+
+  const g = $("gate");
+  if (job.status === "awaiting_gate" && job.gate) {
+    const gt = job.gate;
+    let html = `<p><b>Gate.</b> ${esc(gt.prompt)}</p>`;
+    if (gt.pushback) html += `<p class="pushback">⚠ The gauge says further stages won't pay — consolidation recommended${gt.overall_gauge ? " (" + esc(gt.overall_gauge) + ")" : ""}. "Go" runs a minimal stage anyway.</p>`;
+    html += '<div class="btns">';
+    for (const opt of gt.options) {
+      const [label, cls] = GATE_LABELS[opt] || [opt, "secondary"];
+      html += `<button class="${cls}" data-decision="${esc(opt)}">${esc(label)}</button>`;
+    }
+    html += '</div>';
+    if (gt.custom_allowed) {
+      html += '<textarea id="redirect" placeholder=\'Or describe a different direction — e.g. "focus on whether their PayPal checkout is real"\'></textarea>' +
+              '<div class="btns"><button class="secondary" id="customBtn">↪ Redirect the research</button></div>';
+    }
+    g.innerHTML = html;
+    g.style.display = "block";
+    g.querySelectorAll("button[data-decision]").forEach(b =>
+      b.addEventListener("click", () => sendGate(b.dataset.decision)));
+    const cb = g.querySelector("#customBtn");
+    if (cb) cb.addEventListener("click", () => {
+      const t = g.querySelector("#redirect").value.trim();
+      if (t) sendGate("custom", t);
+    });
+  } else {
+    g.style.display = "none";
+  }
+
+  $("rawlink").style.display = job.stage_log && job.stage_log.length ? "block" : "none";
+  if (job.stage_log && job.stage_log.length)
+    $("rawlink").innerHTML = `<a href="/api/jobs/${job.id}/report" target="_blank" rel="noopener">cumulative report file (.md)</a> — ledger + every stage, rebuilt each boundary`;
+
+  if (job.status === "error" && job.error) {
+    $("error").textContent = "✖ " + job.error;
+    $("error").style.display = "block";
+  }
+  loadRecent();
+}
+
+async function sendGate(decision, text){
+  try {
+    const data = await api(`/api/jobs/${currentId}/gate`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({decision, text: text || null}),
+    });
+    render(data);
+    poll();
+  } catch (err) {
+    $("error").textContent = "✖ " + err.message;
+    $("error").style.display = "block";
+  }
+}
+
+async function loadRecent(){
+  try {
+    const data = await api("/api/jobs");
+    $("recent").innerHTML = (data.jobs || []).map(j =>
+      `<li data-id="${j.id}"><span class="st">${esc(j.status)}</span><span class="subj">${esc(j.subject || "")}</span></li>`
+    ).join("") || '<li><span class="st">none yet</span></li>';
+    $("recent").querySelectorAll("li[data-id]").forEach(li =>
+      li.addEventListener("click", () => { currentId = li.dataset.id; localStorage.setItem("ss2_job", currentId); poll(true); }));
+  } catch { /* ignore */ }
+}
+
+(async () => {
+  loadRecent();
+  if (currentId) {
+    try {
+      const resp = await fetch("/api/jobs/" + currentId);
+      if (resp.ok) { render(await resp.json()); poll(); }
+    } catch { /* ignore */ }
+  }
+})();
+</script>
+</body>
+</html>

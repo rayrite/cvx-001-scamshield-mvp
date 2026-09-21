@@ -1,0 +1,10 @@
+{
+  "check": true,
+  "chat": true,
+  "quick": true,
+  "learning": true,
+  "apps": true,
+  "video": true,
+  "theme": true,
+  "waitlist": true
+}

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quick Research — ScamShield</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/udl.css">
+<link rel="stylesheet" href="/app.css">
+<script src="/udl.js"></script>
+<style>
+.qmodes{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.qmode{flex:1;min-width:200px;text-align:left;border:1px solid var(--line);background:var(--card);
+  border-radius:12px;padding:12px 14px;cursor:pointer;font:inherit;color:inherit}
+.qmode.on{border-color:var(--accent);background:var(--accent-soft)}
+.qmode b{display:block;font-size:.92rem}
+.qmode span{font-size:.76rem;color:var(--muted)}
+textarea{min-height:110px}
+.result{margin-top:20px}
+.result .when{font-size:.78rem;color:var(--muted);margin-bottom:8px}
+.busy{color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<div id="sitenav"></div>
+
+<main class="wrap">
+  <div class="pagehead">
+    <h1>Quick research</h1>
+    <p>Single-pass checks from the paste-ready prompt set — one bounded sweep, then verdict,
+      confidence, and ripeness as independent lines. No staging, no follow-ups (use <a href="/chat">Chat</a>
+      for the full staged skills).</p>
+  </div>
+
+  <div class="banner" id="demoBanner">⚠️ <b>Demo mode</b> — the reply below is a canned example of the
+    output shape, not research. Set <code>ZAI_API_KEY</code> for live single-pass sweeps.</div>
+
+  <div class="panel">
+    <div class="qmodes" id="qmodes"></div>
+    <textarea id="text" placeholder='What to check — e.g. "is shop GlowMelt (glowmelt-beauty.com) a legit store? their TikTok ad sells retinol at $9" or paste the suspicious email / product / company name.'></textarea>
+    <div class="row">
+      <label class="file">📷 Attach screenshot(s)
+        <input id="files" type="file" accept="image/png,image/jpeg,image/jpg" multiple>
+      </label>
+      <button class="btn" id="run" style="margin-left:auto">Run check</button>
+    </div>
+    <div class="thumbs" id="thumbs"></div>
+    <p class="hint">Screenshots are transcribed verbatim first (glm-5.3-flash), then the research pass
+      runs with live web search (glm-5.3). Typical live run: 1–3 minutes.</p>
+    <div class="error" id="error"></div>
+
+    <section class="result" id="result" style="display:none">
+      <p class="when" id="when"></p>
+      <div class="md" id="content"></div>
+      <div id="srcbox"></div>
+    </section>
+  </div>
+</main>
+
+<div id="sitefooter"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js" integrity="sha384-JEyTNhjM6R1ElGoJns4U2Ln4ofPcqzSsynQkmEc/KGy6336qAZl70tDLufbkla+3" crossorigin="anonymous"></script>
+<script src="/app.js"></script>
+<script>
+let mode = null, images = [];
+
+async function loadModes(){
+  const data = await api("/api/modes");
+  const quicks = Object.entries(data.modes || {}).filter(([, m]) => m.kind === "quick" && m.available);
+  $("qmodes").innerHTML = quicks.map(([id, m]) =>
+    `<button class="qmode${mode === id ? " on" : ""}" data-mode="${esc(id)}">
+       <b>${m.emoji} ${esc(m.label)}</b><span>${esc(m.blurb)}</span></button>`).join("")
+    || '<p class="hint">no quick prompts available</p>';
+  $("qmodes").querySelectorAll("[data-mode]").forEach(b =>
+    b.addEventListener("click", () => {
+      mode = b.dataset.mode;
+      $("qmodes").querySelectorAll("[data-mode]").forEach(x => x.classList.toggle("on", x === b));
+    }));
+  if (!mode && quicks.length) {
+    mode = quicks[0][0];
+    $("qmodes").querySelector("[data-mode]").classList.add("on");
+  }
+}
+
+$("files").addEventListener("change", async e => {
+  const added = await readImages(e.target.files, 5 - images.length);
+  images = images.concat(added);
+  e.target.value = "";
+  renderThumbs();
+});
+function renderThumbs(){
+  $("thumbs").innerHTML = "";
+  images.forEach((src, i) => {
+    const d = document.createElement("div"); d.className = "thumb";
+    const img = document.createElement("img"); img.src = src;
+    const x = document.createElement("button"); x.textContent = "×"; x.title = "remove";
+    x.onclick = () => { images.splice(i, 1); renderThumbs(); };
+    d.append(img, x); $("thumbs").appendChild(d);
+  });
+}
+
+$("run").addEventListener("click", async () => {
+  const text = $("text").value.trim();
+  if (!text && !images.length) { $("text").focus(); return; }
+  if (!mode) { alert("pick a quick mode first"); return; }
+  $("run").disabled = true;
+  $("error").style.display = "none";
+  $("result").style.display = "block";
+  $("when").textContent = new Date().toLocaleTimeString() + " — running…";
+  $("content").innerHTML = '<p class="busy">One bounded research pass — verbatim transcription first if you attached screenshots, then the sweep with live web search…</p>';
+  $("srcbox").innerHTML = "";
+  const sent = images; images = []; renderThumbs();
+  try {
+    const data = await api("/api/chat", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({mode, text, images: sent}),
+    });
+    $("when").textContent = new Date().toLocaleTimeString() +
+      (data.demo ? " — demo (canned)" : " — live") + " · conversation " + data.conversation_id;
+    $("content").innerHTML = md(data.reply);
+    if (data.sources && data.sources.length) {
+      const items = data.sources.slice(0, 25).map(s =>
+        `<li>${esc(s.publish_date || "")} — <a href="${esc(s.link)}" target="_blank" rel="noopener">${esc(s.title || s.media || s.link)}</a>${s.media ? " · " + esc(s.media) : ""}</li>`).join("");
+      $("srcbox").innerHTML = `<details open><summary>${data.sources.length} source${data.sources.length === 1 ? "" : "s"} cited</summary><ul style="font-size:.82rem">${items}</ul></details>`;
+    }
+  } catch (err) {
+    $("when").textContent = "";
+    $("content").innerHTML = `<p style="color:var(--bad)">✖ ${esc(err.message)}</p>`;
+  } finally {
+    $("run").disabled = false;
+  }
+});
+
+(async () => {
+  try {
+    const h = await api("/api/health");
+    if (h.demo_mode) $("demoBanner").style.display = "block";
+  } catch { /* ignore */ }
+  await loadModes();
+})();
+</script>
+</body>
+</html>

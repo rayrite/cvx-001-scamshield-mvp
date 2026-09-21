@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Library — ScamShield</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/udl.css">
+<link rel="stylesheet" href="/app.css">
+<script src="/udl.js"></script>
+<style>
+.count{color:var(--muted);font-size:.84rem}
+.refresh{margin-left:auto}
+</style>
+</head>
+<body>
+<div id="sitenav"></div>
+
+<main class="wrap">
+  <div class="pagehead">
+    <h1>🧩 App Library</h1>
+    <p>A dynamic menu of single-page apps served from a shared folder. Add or remove an
+      <code>.html</code> file in <code>content/spas/</code> and refresh — this menu reflects the
+      folder's current contents, no restart needed.</p>
+  </div>
+  <div class="row" style="margin:0 0 6px">
+    <span class="count" id="count"></span>
+    <button class="btn ghost small refresh" id="refresh">↻ Rescan folder</button>
+  </div>
+  <div class="menu-grid" id="grid"></div>
+  <p class="hint" id="empty" style="display:none">The folder is empty — drop single-page-app
+    <code>.html</code> files into <code>content/spas/</code> and rescan.</p>
+</main>
+
+<div id="sitefooter"></div>
+
+<script src="/app.js"></script>
+<script>
+async function load(){
+  const data = await api("/api/spas");
+  const items = data.spas || [];
+  $("count").textContent = items.length
+    ? `${items.length} app${items.length === 1 ? "" : "s"} in the folder`
+    : "";
+  $("grid").innerHTML = items.map(w =>
+    `<a class="menu-card" href="${esc(w.url)}" target="_blank" rel="noopener">
+       <p class="t">🧩 ${esc(w.title)}</p>
+       <p class="d">Single-page app — runs entirely in your browser.</p>
+       <p class="s">${esc(w.file)} · ${w.size_kb} KB</p>
+     </a>`).join("");
+  $("empty").style.display = items.length ? "none" : "block";
+}
+$("refresh").addEventListener("click", load);
+load();
+</script>
+</body>
+</html>

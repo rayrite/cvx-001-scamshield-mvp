@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System-check beacon — header mockup</title>
+<!-- MOCKUP ONLY. Standalone preview of the proposed /api/diagnostics beacon.
+     No real checks run. UDL tokens inlined from udl.json (auto/light/dark). -->
+<style>
+  :root { --bg:#f4f6f9; --card:#ffffff; --ink:#1b2430; --muted:#5a6675;
+          --line:#dde3ea; --accent:#0b5cad; --accent_ink:#084a8c;
+          --accent_soft:#e8f1fa; --good:#0c7a43; --good_soft:#e3f4ea;
+          --warn:#8a5a00; --warn_soft:#fdf3df; --bad:#a12b12; --bad_soft:#fbe9e3;
+          --radius:14px; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 14px rgba(16,24,40,.06);
+          --mono:ui-monospace,'Cascadia Mono',Consolas,monospace; }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-theme=light]) {
+      --bg:#0f141b; --card:#161d27; --ink:#e8edf3; --muted:#9aa7b6;
+      --line:#263140; --accent:#6db3ff; --accent_ink:#9cc9ff;
+      --accent_soft:#12253a; --good:#5ec98d; --good_soft:#122a1d;
+      --warn:#e5b45c; --warn_soft:#2d2413; --bad:#f0917a; --bad_soft:#33201a; } }
+  html[data-theme=dark] {
+      --bg:#0f141b; --card:#161d27; --ink:#e8edf3; --muted:#9aa7b6;
+      --line:#263140; --accent:#6db3ff; --accent_ink:#9cc9ff;
+      --accent_soft:#12253a; --good:#5ec98d; --good_soft:#122a1d;
+      --warn:#e5b45c; --warn_soft:#2d2413; --bad:#f0917a; --bad_soft:#33201a; }
+  * { box-sizing:border-box; margin:0; }
+  body { font:15px/1.55 system-ui,'Segoe UI',Roboto,Arial,sans-serif;
+         background:var(--bg); color:var(--ink); }
+
+  /* ---- the sticky site header (recreated with app tokens) ------------------ */
+  header.site { position:sticky; top:0; z-index:50;
+    background:color-mix(in srgb, var(--card) 88%, transparent);
+    backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
+  header.site .wrap { display:flex; align-items:center; gap:18px;
+    max-width:1080px; margin:0 auto; padding:10px 20px; }
+  .logo { font-weight:700; text-decoration:none; color:var(--ink);
+          font-size:1.02rem; white-space:nowrap; }
+  nav.main { display:flex; gap:4px; flex-wrap:wrap; }
+  nav.main a { text-decoration:none; color:var(--muted); font-size:.88rem;
+               padding:5px 10px; border-radius:8px; }
+  nav.main a:hover { color:var(--ink); background:var(--accent_soft); }
+  nav.main a.active { color:var(--accent_ink); background:var(--accent_soft); }
+  .spacer { flex:1; }
+
+  /* mode chip (existing element) */
+  .mode-chip { font-size:.74rem; font-weight:600; color:var(--accent_ink);
+    background:var(--accent_soft); border-radius:999px; padding:3px 10px;
+    white-space:nowrap; }
+  .mode-chip.demo { color:var(--warn); background:var(--warn_soft); }
+
+  /* ---- NEW: the diagnostics pill (button + beacon) ------------------------ */
+  .diagwrap { position:relative; }
+  .diag { display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+    border:1px solid var(--line); background:var(--card); color:var(--ink);
+    border-radius:999px; padding:5px 12px 5px 9px; font:600 .78rem/1 inherit;
+    font-family:inherit; letter-spacing:.04em; }
+  .diag:hover { border-color:var(--accent); }
+  .diag:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .beacon { width:10px; height:10px; border-radius:50%; flex:none;
+    background:var(--muted);
+    animation:breathe 3s ease-in-out infinite; }
+  .diag[data-state=go]  .beacon { --bea:var(--good); }
+  .diag[data-state=off] .beacon { --bea:var(--bad); }
+  .diag[data-state=run] .beacon { --bea:var(--warn); }
+  .diag[data-state=go]  .beacon,
+  .diag[data-state=off] .beacon,
+  .diag[data-state=run] .beacon { background:var(--bea); }
+  @keyframes breathe {
+    0%,100% { opacity:1;   box-shadow:0 0 0 0   color-mix(in srgb, var(--bea) 45%, transparent); }
+    50%     { opacity:.55; box-shadow:0 0 9px 3px color-mix(in srgb, var(--bea) 45%, transparent); } }
+  @media (prefers-reduced-motion: reduce) { .beacon { animation:none; } }
+
+  /* ---- NEW: the results panel -------------------------------------------- */
+  .diag-panel { display:none; position:absolute; right:0; top:calc(100% + 10px);
+    width:min(360px, calc(100vw - 32px)); background:var(--card);
+    border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+    box-shadow:0 4px 10px rgba(16,24,40,.08), 0 14px 34px rgba(16,24,40,.14);
+    text-align:left; }
+  .diag-panel.open { display:block; }
+  .diag-panel h3 { font-size:.8rem; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted); display:flex; justify-content:space-between; align-items:center; }
+  .diag-panel h3 button { all:unset; cursor:pointer; color:var(--muted);
+    padding:0 2px; font-size:.95rem; } .diag-panel h3 button:hover { color:var(--ink); }
+  .chk { display:grid; grid-template-columns:20px 1fr auto; gap:8px;
+         align-items:baseline; padding:7px 0; border-bottom:1px dashed var(--line); }
+  .chk:last-of-type { border-bottom:none; }
+  .chk .s { font-weight:700; text-align:center; }
+  .chk .s.pass { color:var(--good); } .chk .s.fail { color:var(--bad); }
+  .chk .s.skip { color:var(--muted); }
+  .chk .name b { font-weight:600; font-size:.9rem; }
+  .chk .name .why { display:block; color:var(--muted); font-size:.78rem; }
+  .chk .ms { font:600 .74rem/1.6 var(--mono); color:var(--muted); white-space:nowrap; }
+  .spin { width:11px; height:11px; margin:2px auto 0; border-radius:50%;
+    border:2px solid var(--line); border-top-color:var(--accent);
+    animation:rot .7s linear infinite; }
+  @keyframes rot { to { transform:rotate(360deg); } }
+  .verdict { margin-top:10px; border-radius:9px; padding:8px 12px;
+    font-size:.85rem; font-weight:600; }
+  .verdict.go  { background:var(--good_soft); color:var(--good); }
+  .verdict.off { background:var(--bad_soft);  color:var(--bad); }
+  .verdict small { display:block; font-weight:400; color:var(--muted);
+                   font-size:.76rem; margin-top:1px; }
+  .ctx { margin-top:8px; font:.74rem/1.5 var(--mono); color:var(--muted); }
+
+  /* ---- placeholder page content (not part of the design) ------------------ */
+  .page { max-width:1080px; margin:0 auto; padding:28px 20px 80px; }
+  .hero { background:var(--card); border:1px solid var(--line);
+    border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:34px 30px; margin-bottom:22px; }
+  .hero h1 { font-size:1.7rem; margin-bottom:8px; }
+  .hero p { color:var(--muted); max-width:46rem; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+    gap:16px; }
+  .card { background:var(--card); border:1px solid var(--line);
+    border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; }
+  .card h2 { font-size:1rem; margin-bottom:6px; }
+  .card p { color:var(--muted); font-size:.87rem; }
+
+  /* ---- mockup controls (NOT part of the design) --------------------------- */
+  .mockctl { position:fixed; left:16px; bottom:16px; z-index:60; width:250px;
+    background:var(--card); border:2px dashed var(--accent); border-radius:12px;
+    padding:12px 14px; font-size:.8rem; box-shadow:var(--shadow); }
+  .mockctl b { font-size:.72rem; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--accent_ink); }
+  .mockctl label { display:block; margin:5px 0; cursor:pointer; }
+  .mockctl hr { border:none; border-top:1px solid var(--line); margin:8px 0; }
+  .mockctl .themes { display:flex; gap:6px; }
+  .mockctl .themes button { flex:1; font:600 .72rem/1 inherit; padding:6px 0;
+    border:1px solid var(--line); background:var(--bg); color:var(--ink);
+    border-radius:7px; cursor:pointer; }
+  .mockctl .themes button[aria-pressed=true] { background:var(--accent);
+    color:#fff; border-color:var(--accent); }
+</style>
+</head>
+<body>
+
+<header class="site"><div class="wrap">
+  <a class="logo" href="#">🛡️ ScamShield</a>
+  <nav class="main">
+    <a class="active" href="#">Home</a><a href="#">Check</a><a href="#">Chat</a>
+    <a href="#">Quick</a><a href="#">Learn</a><a href="#">Apps</a>
+    <a href="#">Video</a><a href="#">Theme</a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="diagwrap">
+    <button class="diag" id="diag" data-state="idle" aria-label="System status — click to run diagnostics">
+      <span class="beacon"></span><span id="diagLabel">···</span>
+    </button>
+    <div class="diag-panel" id="diagPanel" role="status">
+      <h3>System check <button id="closePanel" aria-label="Close">✕</button></h3>
+      <div id="rows"></div>
+      <div class="verdict go" id="verdict" style="display:none"></div>
+      <div class="ctx" id="ctx">data dir: /data · glm-5.3-flash</div>
+    </div>
+  </span>
+  <span class="mode-chip" id="modeChip">live · z.ai</span>
+</div></header>
+
+<div class="page">
+  <div class="hero">
+    <h1>Placeholder page content</h1>
+    <p>Scroll — the header (and the beacon) stick. Only the pill button, the
+    beacon light, and the dropdown panel are the proposed design; everything
+    else here is scaffolding so the header reads in context.</p>
+  </div>
+  <div class="cards">
+    <div class="card"><h2>Click the pill</h2><p>Runs the simulated check sequence and opens the results panel.</p></div>
+    <div class="card"><h2>Switch scenarios</h2><p>Bottom-left mockup controls: the four realistic outcomes, including the Railway limited-trial case.</p></div>
+    <div class="card"><h2>Watch it breathe</h2><p>The beacon glows on a ~3 s cycle — green GO, red OFF, amber while running.</p></div>
+    <div class="card"><h2>Theme</h2><p>Auto / light / dark toggle in the mockup controls; tokens are the app's own UDL palette.</p></div>
+    <div class="card"><h2>Card five</h2><p>Filler.</p></div>
+    <div class="card"><h2>Card six</h2><p>Filler.</p></div>
+    <div class="card"><h2>Card seven</h2><p>Filler.</p></div>
+    <div class="card"><h2>Card eight</h2><p>Filler.</p></div>
+  </div>
+</div>
+
+<div class="mockctl">
+  <b>Mockup controls — not part of the design</b>
+  <hr>
+  <label><input type="radio" name="scen" value="go" checked> All systems GO</label>
+  <label><input type="radio" name="scen" value="demo"> No API key (demo mode)</label>
+  <label><input type="radio" name="scen" value="rail"> Railway limited trial (outbound blocked)</label>
+  <label><input type="radio" name="scen" value="badkey"> Key invalid (z.ai 401)</label>
+  <hr>
+  <div class="themes">
+    <button id="tAuto" aria-pressed="true">Auto</button>
+    <button id="tLight" aria-pressed="false">Light</button>
+    <button id="tDark" aria-pressed="false">Dark</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+/* Scenario → per-check outcome. "ok" | reason string ("skip"/failure why). */
+const SCEN = {
+  go:     { key:"ok",  net:"ok",  ping:"ok",  ms:[38, 212, 1840], tok:57 },
+  demo:   { key:"no key found in environment — demo mode", net:"ok", ping:"skip", ms:[41, 195, 0], tok:0 },
+  rail:   { key:"ok",  net:"blocked — outbound restricted (unverified trial)", ping:"skip", ms:[35, 8023, 0], tok:0 },
+  badkey: { key:"ok",  net:"ok",  ping:"z.ai HTTP 401 — key invalid or revoked", ms:[40, 208, 920], tok:0 },
+};
+const ROWS = [
+  ["key",  "API key configured",  "presence only — the key itself is never returned"],
+  ["net",  "Internet · api.z.ai", "the exact host the app depends on"],
+  ["ping", "z.ai ping · glm-5.3-flash", "one tiny completion, reasoning_effort low"],
+];
+let running = false;
+
+function pill(state, label) {
+  $("diag").dataset.state = state; $("diagLabel").textContent = label;
+}
+function rowHtml(status, name, why, ms) {
+  const s = { pass:'<span class="s pass">✓</span>', fail:'<span class="s fail">✗</span>',
+              skip:'<span class="s skip">–</span>', run:'<span class="spin"></span>' }[status];
+  return `<div class="chk">${s}<span class="name"><b>${name}</b>` +
+         (why ? `<span class="why">${why}</span>` : "") + `</span>` +
+         (ms != null ? `<span class="ms">${ms}</span>` : "") + `</div>`;
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function runCheck() {
+  if (running) return; running = true;
+  const scen = SCEN[document.querySelector('input[name=scen]:checked').value];
+  pill("run", "···");
+  $("modeChip").textContent = scen === SCEN.demo ? "demo mode" : "live · z.ai";
+  $("modeChip").className = "mode-chip" + (scen === SCEN.demo ? " demo" : "");
+  $("verdict").style.display = "none";
+  const out = { key: scen.key === "ok" ? "pass" : "fail",
+                net: scen.net === "ok" ? "pass" : "fail",
+                ping: scen.ping === "ok" ? "pass" : (scen.ping === "skip" ? "skip" : "fail") };
+  $("rows").innerHTML = ROWS.map(r => rowHtml("run", r[1], "", "")).join("");
+  $("diagPanel").classList.add("open");
+  let go = true;
+  for (let i = 0; i < 3; i++) {
+    await sleep(500 + Math.random() * 500);
+    const [id, name, sub] = ROWS[i];
+    const ok = out[id] === "pass";
+    if (out[id] === "fail") go = false;
+    const why = id === "key" && ok ? sub
+      : id === "net" && ok ? sub
+      : id === "ping" && ok ? `replied “pong” · ${scen.tok} tokens`
+      : id === "ping" && out[id] === "skip" ? "skipped — earlier check failed"
+      : scen[id];
+    const ms = out[id] === "pass" ? `${scen.ms[i]} ms` : (out[id] === "skip" ? "" : scen.ms[i] >= 8000 ? "timeout" : `${scen.ms[i]} ms`);
+    const rows = $("rows").children;
+    rows[i].outerHTML = rowHtml(out[id], name, why, ms || null);
+  }
+  const v = $("verdict");
+  v.className = "verdict " + (go ? "go" : "off");
+  v.innerHTML = go ? "GO · all 3 checks passed"
+                   : `OFF · ${out.key === "fail" ? "API key" : out.net === "fail" ? "internet" : "z.ai ping"} failed` +
+                     `<small>${go ? "" : out.key !== "pass" ? "app still serves pages — replies are canned demo responses" : "fix the failing check before relying on live results"}</small>`;
+  v.style.display = "";
+  pill(go ? "go" : "off", go ? "GO" : "OFF");
+  running = false;
+}
+
+$("diag").addEventListener("click", runCheck);
+$("closePanel").addEventListener("click", e => { e.stopPropagation(); $("diagPanel").classList.remove("open"); });
+document.addEventListener("click", e => {
+  if (!e.target.closest(".diagwrap")) $("diagPanel").classList.remove("open");
+});
+document.querySelectorAll('input[name=scen]').forEach(r =>
+  r.addEventListener("change", () => { pill("idle", "···"); $("diagPanel").classList.remove("open"); }));
+
+/* theme toggle */
+const setTheme = (t, btn) => {
+  document.documentElement.dataset.theme = t === "auto" ? "" : t;
+  ["tAuto","tLight","tDark"].forEach(id => $(id).setAttribute("aria-pressed", id === btn ? "true" : "false"));
+};
+$("tAuto").onclick  = () => setTheme("auto",  "tAuto");
+$("tLight").onclick = () => setTheme("light", "tLight");
+$("tDark").onclick  = () => setTheme("dark",  "tDark");
+
+/* auto-run once on load, like the real design would */
+setTimeout(runCheck, 700);
+</script>
+</body>
+</html>

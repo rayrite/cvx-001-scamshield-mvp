@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theme — Universal Design Language</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%F0%9F%9B%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/udl.css" id="udlLink">
+<link rel="stylesheet" href="/app.css">
+<script src="/udl.js"></script>
+<style>
+.editor{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+@media (max-width:860px){.editor{grid-template-columns:1fr}}
+.pal h3{margin:0 0 10px;font-size:.95rem}
+.pal .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.sw{display:flex;flex-direction:column;gap:3px;font-size:.74rem;color:var(--muted)}
+.sw input[type=color]{width:100%;height:34px;border:1px solid var(--line);border-radius:8px;
+  background:var(--card);padding:2px;cursor:pointer}
+.sw input[type=text]{padding:5px 8px;font-size:.78rem}
+.knobs{display:grid;gap:12px}
+.knob label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px}
+.knob input[type=range]{width:100%}
+.knob select,.knob input[type=text]{width:100%}
+.swatchbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.swatchbar span{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);
+  display:inline-flex;align-items:center;justify-content:center;font-size:1rem}
+.saved{color:var(--good);font-size:.86rem;margin-left:10px}
+</style>
+</head>
+<body>
+<div id="sitenav"></div>
+
+<main class="wrap">
+  <div class="pagehead">
+    <h1>🎨 Universal Design Language</h1>
+    <p>One <code>udl.json</code> themes every page of the app (the wikis and SPAs keep their own
+      embedded designs). Light adjustments only — colors, fonts, radius, shadow, light/dark mode —
+      saved centrally via <code>/api/udl</code> and applied on the next page load.</p>
+  </div>
+
+  <div class="panel">
+    <div class="row" style="margin:0 0 16px">
+      <button class="btn" id="save">Save theme</button>
+      <button class="btn ghost" id="reset">Reset to defaults</button>
+      <span class="saved" id="saved"></span>
+    </div>
+
+    <div class="editor">
+      <div>
+        <div class="knobs">
+          <div class="knob"><label>Theme name</label>
+            <input type="text" id="name"></div>
+          <div class="knob"><label>Mode</label>
+            <select id="mode">
+              <option value="auto">auto — follow each visitor's system</option>
+              <option value="light">light — force light</option>
+              <option value="dark">dark — force dark</option>
+            </select></div>
+          <div class="knob"><label>Corner radius — <span id="radiusVal"></span></label>
+            <input type="range" id="radius" min="0" max="24" step="1"></div>
+          <div class="knob"><label>Shadow strength</label>
+            <select id="shadow">
+              <option value="none">none — flat</option>
+              <option value="soft">soft (default)</option>
+              <option value="medium">medium</option>
+              <option value="strong">strong</option>
+            </select></div>
+          <div class="knob"><label>Body font</label>
+            <select id="fontBody">
+              <option value="system-ui, 'Segoe UI', Roboto, Arial, sans-serif">System UI</option>
+              <option value="Georgia, 'Times New Roman', serif">Serif (Georgia)</option>
+              <option value="'Trebuchet MS', 'Segoe UI', sans-serif">Trebuchet</option>
+              <option value="Verdana, Geneva, sans-serif">Verdana</option>
+            </select></div>
+          <div class="knob"><label>Heading font</label>
+            <select id="fontHeading">
+              <option value="system-ui, 'Segoe UI', Roboto, Arial, sans-serif">System UI</option>
+              <option value="Georgia, 'Times New Roman', serif">Serif (Georgia)</option>
+              <option value="'Trebuchet MS', 'Segoe UI', sans-serif">Trebuchet</option>
+            </select></div>
+        </div>
+
+        <div class="pal" style="margin-top:20px">
+          <h3>☀️ Light palette</h3>
+          <div class="grid" id="palLight"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="pal">
+          <h3>🌙 Dark palette</h3>
+          <div class="grid" id="palDark"></div>
+        </div>
+
+        <div class="panel" style="margin-top:18px" id="preview">
+          <div class="statusrow">
+            <span class="chip">chip</span>
+            <span class="chip status-done">done</span>
+            <span class="chip status-error">error</span>
+          </div>
+          <blockquote style="margin:8px 0;padding:6px 14px;border-left:3px solid var(--accent);
+            background:var(--accent-soft);border-radius:6px">
+            Verdict: 🟡 mixed record — Medium confidence <i>(preview card)</i></blockquote>
+          <button class="btn small">primary</button>
+          <button class="btn ghost small">secondary</button>
+        </div>
+        <p class="hint">The preview card above restyles live as you pick colors. Saving writes
+          <code>udl.json</code> on the server — every page picks it up on next load (this page
+          reloads it instantly).</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="sitefooter"></div>
+
+<script src="/app.js"></script>
+<script>
+const COLOR_KEYS = [
+  ["bg", "page background"], ["card", "card background"], ["ink", "text"],
+  ["muted", "muted text"], ["line", "borders"], ["accent", "accent"],
+  ["accent_ink", "accent text"], ["accent_soft", "accent tint"],
+  ["good", "good"], ["good_soft", "good tint"], ["warn", "warn"],
+  ["warn_soft", "warn tint"], ["bad", "bad"], ["bad_soft", "bad tint"],
+];
+const SHADOWS = {
+  "none": "none",
+  "soft": "0 1px 2px rgba(16,24,40,.06), 0 4px 14px rgba(16,24,40,.06)",
+  "medium": "0 2px 4px rgba(16,24,40,.08), 0 8px 22px rgba(16,24,40,.10)",
+  "strong": "0 4px 8px rgba(16,24,40,.10), 0 14px 34px rgba(16,24,40,.16)",
+};
+const DEFAULTS = {
+  name: "ScamShield House", mode: "auto",
+  colors: {
+    light: {bg:"#f4f6f9",card:"#ffffff",ink:"#1b2430",muted:"#5a6675",line:"#dde3ea",
+      accent:"#0b5cad",accent_ink:"#084a8c",accent_soft:"#e8f1fa",good:"#0c7a43",good_soft:"#e3f4ea",
+      warn:"#8a5a00",warn_soft:"#fdf3df",bad:"#a12b12",bad_soft:"#fbe9e3"},
+    dark: {bg:"#0f141b",card:"#161d27",ink:"#e8edf3",muted:"#9aa7b6",line:"#263140",
+      accent:"#6db3ff",accent_ink:"#9cc9ff",accent_soft:"#12253a",good:"#5ec98d",good_soft:"#122a1d",
+      warn:"#e5b45c",warn_soft:"#2d2413",bad:"#f0917a",bad_soft:"#33201a"},
+  },
+  fonts: {
+    body: "system-ui, 'Segoe UI', Roboto, Arial, sans-serif",
+    heading: "system-ui, 'Segoe UI', Roboto, Arial, sans-serif",
+    mono: "ui-monospace, 'Cascadia Mono', Consolas, monospace",
+  },
+  radius: "14px",
+  shadow: "0 1px 2px rgba(16,24,40,.06), 0 4px 14px rgba(16,24,40,.06)",
+};
+
+let cfg = null;
+
+function palHost(which){ return which === "light" ? $("palLight") : $("palDark"); }
+
+function buildPalettes(){
+  for (const which of ["light", "dark"]) {
+    palHost(which).innerHTML = COLOR_KEYS.map(([k, label]) =>
+      `<label class="sw">${esc(label)} <code>${k}</code>
+         <input type="color" data-pal="${which}" data-key="${k}" value="#000000">
+         <input type="text" data-pal="${which}" data-key="${k}" value="">"></label>`).join("");
+    palHost(which).querySelectorAll("input[type=color]").forEach(inp =>
+      inp.addEventListener("input", () => {
+        cfg.colors[inp.dataset.pal][inp.dataset.key] = inp.value;
+        const twin = palHost(inp.dataset.pal).querySelector(
+          `input[type=text][data-key="${inp.dataset.key}"]`);
+        if (twin) twin.value = inp.value;
+        livePreview();
+      }));
+    palHost(which).querySelectorAll("input[type=text]").forEach(inp =>
+      inp.addEventListener("change", () => {
+        const v = inp.value.trim();
+        if (!/^#[0-9a-fA-F]{6}$/.test(v)) { inp.value = cfg.colors[inp.dataset.pal][inp.dataset.key]; return; }
+        cfg.colors[inp.dataset.pal][inp.dataset.key] = v;
+        const twin = palHost(inp.dataset.pal).querySelector(
+          `input[type=color][data-key="${inp.dataset.key}"]`);
+        if (twin) twin.value = v;
+        livePreview();
+      }));
+  }
+}
+
+function fill(){
+  $("name").value = cfg.name;
+  $("mode").value = cfg.mode;
+  $("radius").value = parseInt(cfg.radius) || 14;
+  $("radiusVal").textContent = cfg.radius;
+  const shadowKey = Object.keys(SHADOWS).find(k => SHADOWS[k] === cfg.shadow) || "soft";
+  $("shadow").value = shadowKey;
+  $("fontBody").value = [...$("fontBody").options].some(o => o.value === cfg.fonts.body) ? cfg.fonts.body : $("fontBody").options[0].value;
+  $("fontHeading").value = [...$("fontHeading").options].some(o => o.value === cfg.fonts.heading) ? cfg.fonts.heading : $("fontHeading").options[0].value;
+  for (const which of ["light", "dark"]) {
+    palHost(which).querySelectorAll("input[data-key]").forEach(inp => {
+      inp.value = cfg.colors[which][inp.dataset.key] || "#000000";
+    });
+  }
+  livePreview();
+}
+
+// apply the in-progress config to THIS page immediately (custom properties)
+function livePreview(){
+  const r = document.documentElement.style;
+  for (const which of ["light", "dark"]) {
+    // only the palette matching the currently forced mode is previewed live;
+    // auto previews light unless the system prefers dark
+    const dark = $("mode").value === "dark" ||
+      ($("mode").value === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+    if ((which === "dark") === dark) {
+      const c = cfg.colors[which];
+      r.setProperty("--bg", c.bg); r.setProperty("--card", c.card); r.setProperty("--ink", c.ink);
+      r.setProperty("--muted", c.muted); r.setProperty("--line", c.line);
+      r.setProperty("--accent", c.accent); r.setProperty("--accent-ink", c.accent_ink);
+      r.setProperty("--accent-soft", c.accent_soft);
+      r.setProperty("--good", c.good); r.setProperty("--good-soft", c.good_soft);
+      r.setProperty("--warn", c.warn); r.setProperty("--warn-soft", c.warn_soft);
+      r.setProperty("--bad", c.bad); r.setProperty("--bad-soft", c.bad_soft);
+    }
+  }
+  r.setProperty("--font-body", cfg.fonts.body);
+  r.setProperty("--font-heading", cfg.fonts.heading);
+  r.setProperty("--radius", cfg.radius);
+  r.setProperty("--shadow", cfg.shadow);
+  document.documentElement.dataset.mode = $("mode").value === "auto" ? "" : $("mode").value;
+}
+
+function collect(){
+  cfg.name = $("name").value.trim() || "Untitled";
+  cfg.mode = $("mode").value;
+  cfg.radius = parseInt($("radius").value) + "px";
+  cfg.shadow = SHADOWS[$("shadow").value];
+  cfg.fonts.body = $("fontBody").value;
+  cfg.fonts.heading = $("fontHeading").value;
+  return cfg;
+}
+
+$("radius").addEventListener("input", () => {
+  $("radiusVal").textContent = $("radius").value + "px";
+  collect(); livePreview();
+});
+$("mode").addEventListener("change", () => { collect(); livePreview(); });
+$("fontBody").addEventListener("change", () => { collect(); livePreview(); });
+$("fontHeading").addEventListener("change", () => { collect(); livePreview(); });
+
+$("save").addEventListener("click", async () => {
+  $("saved").textContent = "saving…";
+  try {
+    await api("/api/udl", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(collect()),
+    });
+    // hot-swap this page's generated stylesheet (cache-busted)
+    $("udlLink").href = "/udl.css?v=" + Date.now();
+    document.documentElement.style.cssText = "";   // drop preview overrides
+    $("saved").textContent = "✓ saved — applied across the app";
+  } catch (err) {
+    $("saved").textContent = "";
+    alert("✖ " + err.message);
+  }
+});
+
+$("reset").addEventListener("click", async () => {
+  if (!confirm("Reset the theme to the shipped defaults?")) return;
+  cfg = JSON.parse(JSON.stringify(DEFAULTS));
+  fill();
+  $("saved").textContent = "defaults staged — press Save to write them";
+});
+
+(async () => {
+  try { cfg = await api("/api/udl"); }
+  catch { cfg = JSON.parse(JSON.stringify(DEFAULTS)); }
+  buildPalettes();
+  fill();
+})();
+</script>
+</body>
+</html>
